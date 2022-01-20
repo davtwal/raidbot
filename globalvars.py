@@ -80,7 +80,7 @@ GDICT_SECTION_EVENTS = 'event'
 GDICT_SECTION_RAIDING = 'raiding'
 GDICT_SECTION_VETERAN = 'veteran'
 
-GDICT_DUNGEON_ROLE_WHITELIST = 'dung_role_wlist'
+#GDICT_DUNGEON_ROLE_WHITELIST = 'dung_role_wlist'
 
 DEFAULT_GUILD_DICT = {
   GDICT_RAIDSTREAM_ROLE: '',
@@ -88,7 +88,7 @@ DEFAULT_GUILD_DICT = {
   GDICT_VETRAIDER_ROLE: '',
   GDICT_NITRO_ROLE: '',
   GDICT_EARLY_ROLES: [],
-  GDICT_DUNGEON_ROLE_WHITELIST: {},
+#  GDICT_DUNGEON_ROLE_WHITELIST: {},
   GDICT_SECTIONS: {}
 }
 
@@ -113,11 +113,11 @@ def get_nitro_role(guild_id) -> str:
 def get_early_roles(guild_id) -> List[str]:
   return gdict[guild_id][GDICT_EARLY_ROLES]
 
-def get_role_whitelist(guild_id) -> Dict[str, List[int]]:
-  return gdict[guild_id][GDICT_DUNGEON_ROLE_WHITELIST]
+#def get_role_whitelist(guild_id) -> Dict[str, List[int]]:
+#  return gdict[guild_id][GDICT_DUNGEON_ROLE_WHITELIST]
 
-def can_do_dungeon(guild_id, dungeon_code, ) -> bool:
-  pass
+#def can_do_dungeon(guild_id, dungeon_code, ) -> bool:
+#  pass
 
 def get_role_tier(role) -> int:
   for i in range(len(ROLES)):
