@@ -131,3 +131,6 @@ dmypy.json
 # SSH
 .ssh/
 *.sh
+
+# JSON
+*.json
