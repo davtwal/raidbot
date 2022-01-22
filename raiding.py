@@ -14,6 +14,9 @@ managers: Dict[int, Dict[str, sm.SectionAFKCheckManager]] = {}
 
 import globalvars as g
 
+def get_managers():
+  return managers
+
 def setup_managers(bot: commands.Bot, new_managers):
   print('Setting up raid managers...')
   for gid in new_managers:

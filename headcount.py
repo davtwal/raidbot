@@ -53,7 +53,7 @@ class Headcount:
     self.status_embed.set_author(name=self.dungeon.get_hc_title(self.bot, self.owner()), icon_url=self.owner().avatar.url)
     
     time = datetime.now()
-    self.panel_embed = discord.Embed(description=HC_PANEL_INFO_STR.format(REACT_CHECK, REACT_PLAY, REACT_WASTE), timestamp=time.replace(hour=time.hour+1))
+    self.panel_embed = discord.Embed(description=HC_PANEL_INFO_STR.format(REACT_CHECK, REACT_PLAY, REACT_WASTE), timestamp=time.replace(hour=(time.hour+1)%24))
     self.panel_embed.set_author(name='Control Panel', icon_url=self.owner().avatar.url)
     self.panel_embed.set_footer(text='This headcount will auto end at')
     for care in self.care_reacts:

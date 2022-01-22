@@ -3,6 +3,7 @@ from globalvars import find_channel
 
 import discord
 from discord.ext import commands
+from raiding import get_managers
 
 # Actual cog
 
@@ -55,8 +56,17 @@ class AdminCmds(commands.Cog):
     elif mainarg == 'sections':
       await ctx.send(f'```{g.gdict[ctx.guild.id][g.GDICT_SECTIONS].keys()}```')
       
-    elif mainarg[:8] == 'section_':
+    elif mainarg == 'hcs':
+      mngrs = get_managers()
+      await ctx.send(f'{[mngrs[ctx.guild.id][sect].active_hcs for sect in mngrs[ctx.guild.id]]}')
+    
+    elif mainarg == 'afks':
+      mngrs = get_managers()
+      await ctx.send(f'{[mngrs[ctx.guild.id][sect].active_afks for sect in mngrs[ctx.guild.id]]}')
+    
+    elif len(mainarg) > 8 and mainarg[:8] == 'section_':
       await ctx.send(f'```{g.gdict[ctx.guild.id][g.GDICT_SECTIONS][mainarg[8:]]}```')
+    
     
     else:
       await ctx.send("Invalid view option given.")
