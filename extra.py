@@ -105,6 +105,11 @@ class ExtraCmds(commands.Cog, name='Extra Commands'):
     await voice_ch.set_permissions(raider_role, connect=False, reason=f'Channel lock by {ctx.author.display_name}')
     await ctx.send(f'{voice_ch.mention} has been locked.')
   
+  @commands.command(name='patience')
+  async def give_patience(self, ctx: commands.Context):
+    await ctx.message.delete()
+    await ctx.send("https://media.discordapp.net/attachments/451181425115398184/897237811168690316/Shatters_Patience_DirectionsV1.1.gif?width=374&height=375")
+  
   @commands.command(name='clean')
   @commands.has_any_role(*get_event_roles())
   async def clean_channel(self, ctx: commands.Context):

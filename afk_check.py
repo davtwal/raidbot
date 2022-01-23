@@ -436,6 +436,7 @@ class AFKCheck:
         if self.key_poppers is None:
           self._log('Key react with no previous reacts. Key added.')
           self.key_poppers = [user]
+          give_location = True
         else:
           if self.dungeon.max_keys == 0 or len(self.key_poppers) < self.dungeon.max_keys:
             self._log(f'Additional key accepted.')
