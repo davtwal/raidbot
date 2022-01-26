@@ -11,6 +11,7 @@ from extra import ExtraCmds
 from raiding import RaidingCmds, setup_managers
 from admin import AdminCmds
 from errorhandler import ErrorHandling
+from tracking import TrackingCog
 
 import random
 import re
@@ -80,10 +81,10 @@ class RunsWhenCog(commands.Cog):
   
   @commands.Cog.listener()
   async def on_message(self, message: discord.Message):
-    if message.author.id == bot.user.id:
+    if message.author.id == self.bot.user.id:
       return
     
-    if (bot.user.mentioned_in(message) and not message.mention_everyone) or message.content.lower().find("shattsbot") != -1:
+    if (self.bot.user.mentioned_in(message) and not message.mention_everyone) or message.content.lower().find("shattsbot") != -1:
       mention_reacts = ['😳', '😚', '🥰', '😤', '🥴', '🤪', '😵', '🤡', '🤭', '🔨', '🍆', '🍑', '💦', '⁉', '🆗']
       random.seed()
       await message.add_reaction(mention_reacts[random.randint(0, len(mention_reacts) - 1)])
@@ -116,8 +117,9 @@ class RunsWhenCog(commands.Cog):
 bot.add_cog(ErrorHandling(bot))
 bot.add_cog(AdminCmds(bot))
 bot.add_cog(ExtraCmds(bot))
-bot.add_cog(RunsWhenCog(bot))
 bot.add_cog(RaidingCmds(bot))
+bot.add_cog(TrackingCog(bot))
+bot.add_cog(RunsWhenCog(bot))
 
 bot.run(DISCORD_TOKEN)
 

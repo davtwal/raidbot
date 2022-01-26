@@ -226,6 +226,11 @@ dps_debuff = [R_CURSE, R_ARMORBREAK, R_EXPOSE]
 standard_buffs = [R_BERSERK, R_DAMAGING, R_INSPIRE, R_STUN, R_CURSE, R_ARMORBREAK, R_EXPOSE]
 
 SHATTERS_DNAME = 'shatters'
+OSANC_DNAME = 'o3'
+FUNGAL_DNAME = 'fungal'
+NEST_DNAME = 'nest'
+CULT_DNAME = 'cult'
+VOID_DNAME = 'void'
 
 dungeonlist: Dict[str, Dict[str, Dungeon]] = {
   'Basic': {
@@ -275,12 +280,12 @@ dungeonlist: Dict[str, Dict[str, Dungeon]] = {
     'katalund': Dungeon('Katalund', [924743856866603019], [924742806789029958], None, standard_buffs)
   },
   'Exaltation': {
-    'fungal': Dungeon('Fungal Cavern',  [924714365251362856], [924723992949063730], None, [R_SLOW, R_MSEAL, R_FUNGAL, R_TRICKSTER, R_MYSTIC], standard_buffs),
-    'nest': Dungeon('Nest',             [924711683409215579], [924723993116803202], None, [R_SLOW, R_DAZE, R_FUNGAL, R_TRICKSTER], standard_buffs),
+    FUNGAL_DNAME: Dungeon('Fungal Cavern',  [924714365251362856], [924723992949063730], None, [R_SLOW, R_MSEAL, R_FUNGAL, R_TRICKSTER, R_MYSTIC], standard_buffs),
+    NEST_DNAME: Dungeon('Nest',             [924711683409215579], [924723993116803202], None, [R_SLOW, R_DAZE, R_FUNGAL, R_TRICKSTER], standard_buffs),
     SHATTERS_DNAME: Dungeon('Shatters', [924809116755587112], [924723993070682202], {R_SWITCHRUSH: [3, 'Rusher'], R_FUNGAL: [2, 'Supreme Priest']}, [R_MSEAL, R_CSHIELD, R_TRICKSTER, R_SLOW], standard_buffs, 1),
-    'cult': Dungeon('Cultist Hideout',  [924711683308519515], [924723992621903883], {R_RUSH: [2, None]}, [R_DAZE, R_TRICKSTER], [R_FUNGAL, R_MSEAL] + standard_buffs),
-    'void': VoidDungeon('Void',         [924711683161739324], [924723992621903883, 924723993808887849], None, [R_FUNGAL, R_MSEAL], standard_buffs),
-    'o3': SanctuaryDungeon('Oryx\'s Sanctuary', [924728919465267232], [924728746785775706, 924723993272004649, 924723992730927157, 924723993079074947], None, [R_TRICKSTER, R_FUNGAL], [R_MSEAL, R_MYSTIC] + standard_buffs)
+    CULT_DNAME: Dungeon('Cultist Hideout',  [924711683308519515], [924723992621903883], {R_RUSH: [2, None]}, [R_DAZE, R_TRICKSTER], [R_FUNGAL, R_MSEAL] + standard_buffs),
+    VOID_DNAME: VoidDungeon('Void',         [924711683161739324], [924723992621903883, 924723993808887849], None, [R_FUNGAL, R_MSEAL], standard_buffs),
+    OSANC_DNAME: SanctuaryDungeon('Oryx\'s Sanctuary', [924728919465267232], [924728746785775706, 924723993272004649, 924723992730927157, 924723993079074947], None, [R_TRICKSTER, R_FUNGAL], [R_MSEAL, R_MYSTIC] + standard_buffs)
   },
   'Court': {
     'shaitan': Dungeon('Lair of Shaitain',        [924745735910604820], [924744714425602078], None, [R_MSEAL], standard_buffs),
