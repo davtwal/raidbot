@@ -69,6 +69,9 @@ class Dungeon:
       retval.append(bot.get_emoji(react))
     return retval
   
+  def get_portal_react_emojis(self, bot) -> List[Emoji]:
+    return [] if self.react_portals is None else [bot.get_emoji(react) for react in self.react_portals]
+
   def get_key_react_emojis(self, bot) -> List[Emoji]:
     return [] if self.react_keys is None else [bot.get_emoji(react) for react in self.react_keys]
   

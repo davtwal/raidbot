@@ -137,3 +137,5 @@ dmypy.json
 
 # DB
 *.db
+
+test.py

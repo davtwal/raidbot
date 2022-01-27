@@ -11,7 +11,7 @@ from extra import ExtraCmds
 from raiding import RaidingCmds, setup_managers
 from admin import AdminCmds
 from errorhandler import ErrorHandling
-from tracking import TrackingCog
+from tracking import TrackingCog, setup_dbs
 
 import random
 import re
@@ -37,6 +37,7 @@ class ShattersBot(commands.Bot):
         manager_setups[guild].append(section)
         
     setup_managers(self, manager_setups)
+    setup_dbs(self)
 
 bot = ShattersBot()
 

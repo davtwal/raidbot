@@ -13,6 +13,7 @@ from globalvars import REACT_X, REACT_CHECK, REACT_PLAY
 from globalvars import is_debug, get_staff_roles, get_nitro_role, get_early_roles
 #from section_manager import SectionAFKCheckManager
 from hc_afk_helpers import ConfirmView, get_field_index, ask_location
+from tracking import add_runs_done
 
 CHANNEL_OPENING_WARNING_TIME = 5
 POST_AFK_TIME = 20
@@ -335,6 +336,10 @@ class AFKCheck:
     await self.panel_msg.edit(embed=self.panel_embed)
     
     await self.manager.remove_afk(self.owner().id, report=self.dungeon.code == dungeons.SHATTERS_DNAME)
+
+    # Add runs to those who are currently in the voice chat.
+    add_runs_done(self.manager.guild.id, self.dungeon.code, self.voice_ch.members, self.owner())
+
   
   async def close(self):
     self._log("Close channel")
