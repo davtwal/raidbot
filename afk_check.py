@@ -172,7 +172,7 @@ class AFKCheck:
     self.afk_view = AFKCheckAFKView(self, self.dungeon, self.join_emoji, confirm_reacts, noconfirm_reacts)
     
     # Send messages
-    afk_content = f"{here_ping} An AFK check has been started in {self.voice_ch.mention}."
+    afk_content = f"{here_ping} An AFK check has been started by {self.owner().mention} in {self.voice_ch.mention}."
     
     self.panel_msg = self.ctx.send(embed=self.panel_embed, view=self.panel_view)
     self.afk_msg = self.status_ch.send(content=afk_content, embed=self.afk_embed, view=self.afk_view)

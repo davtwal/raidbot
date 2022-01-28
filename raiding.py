@@ -128,10 +128,10 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
   @commands.has_any_role(*get_raid_roles())
   async def raid_headcount(self, ctx: commands.Context, ignored=None):
     """[ARL+] Starts up a Shatters headcount. Cannot be used in the Events section. (Note: ViBot requires a `s` as an option for headcounts; it is optional here.)"""
-    if ctx.author.id != 170752798189682689: 
-      await ctx.send('Leading Shatters is currently disabled. Soon (tm)')
-      return
-    
+    #if ctx.author.id != 170752798189682689: 
+    #  await ctx.send('Leading Shatters is currently disabled. Soon (tm)')
+    #  return
+
     cont, section = await channel_checks(ctx)
     
     if cont:   
@@ -328,9 +328,9 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
         [location] is an optional argument that provides reacts with early location the location specified. If no location is specified, it will
         be set to "TBD". The location of your AFK check can be updated with the ^loc command after it's up.
     """
-    if ctx.author.id != 170752798189682689: 
-      await ctx.send('Leading Shatters is currently disabled. Soon (tm)')
-      return
+    #if ctx.author.id != 170752798189682689: 
+    #  await ctx.send('Leading Shatters is currently disabled. Soon (tm)')
+    #  return
     
     cont, section = await channel_checks(ctx)
     

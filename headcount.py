@@ -61,7 +61,7 @@ class Headcount:
       self.panel_embed.add_field(inline=True, name=label, value='None')
     
     here_ping = '`@here`' if is_debug() else '@here'
-    self.status_msg = self.status_ch.send(content=HC_ANNOUNCE_STR.format(here_ping, self.dungeon.name, self.owner().display_name), embed=self.status_embed)
+    self.status_msg = self.status_ch.send(content=HC_ANNOUNCE_STR.format(here_ping, self.dungeon.name, self.owner().mention), embed=self.status_embed)
     
     self.panel_msg = self.ctx.send(embed=self.panel_embed, view=HeadcountPanelView(self))
     

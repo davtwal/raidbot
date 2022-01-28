@@ -72,7 +72,11 @@ class TrackingCog(commands.Cog):
       if len(message.content) > STATS_MSG_LEN + 1: #+1 for the space
         additional = message.content[STATS_MSG_LEN+1:].split()[0] # don't let them add more names >:(
         try:
-          uid = int(additional)
+          # Check and see if it's a mention
+          if len(additional) > 3 and additional[:3] == '<@!':
+            uid = int(additional[3:-1])
+          else:
+            uid = int(additional)
         except ValueError:
           # It's not an ID, we have to find them by name
           def find_pred(m: discord.Member):
