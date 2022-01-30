@@ -447,8 +447,11 @@ class AFKCheck:
     if user.voice and user.voice.channel:
       if user.voice.channel.id != self.voice_ch.id:
         if self.voice_ch.user_limit < len(self.voice_ch.members) or force:
-          await user.move_to(self.voice_ch)
-          return self.MOVE_SUCCESS
+          try:
+            await user.move_to(self.voice_ch)
+            return self.MOVE_SUCCESS
+          except:
+            return self.MOVE_NOT_IN_VOICE
 
         return self.MOVE_CAPPED
 
@@ -483,7 +486,7 @@ class AFKCheck:
   ACK_BUTTON_CAPPED = 2
   ACK_BUTTON_CONFIRMED = 3
   ACK_BUTTON_MUST_BE_IN_VC = 4
-  async def ack_button(self, react_emoji: discord.PartialEmoji, user:discord.Member, confirmed=None) -> bool:
+  async def ack_button(self, react_emoji: discord.PartialEmoji, user:discord.Member, confirmed=None):
     """Acknowledges a button press.
 
     Parameters:
@@ -572,7 +575,7 @@ class AFKCheck:
   ACK_JOIN_SAY_NOTHING = 2
   ACK_JOIN_WAIT = 3
   ACK_JOIN_CANNOT_JOIN = 4
-  async def ack_join(self, user: discord.Member) -> int:
+  async def ack_join(self, user: discord.Member):
     """Acknowledges clicking the Join button.
 
     Parameters:
