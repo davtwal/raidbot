@@ -1,6 +1,6 @@
 import asyncio
 from code import interact
-from typing import Optional, List
+from typing import Optional, List, Dict
 from datetime import datetime
 import time
 
@@ -10,7 +10,7 @@ from discord.ext import commands
 
 import dungeons
 from globalvars import REACT_X, REACT_CHECK, REACT_PLAY
-from globalvars import is_debug, get_staff_roles, get_nitro_role, get_early_roles
+from globalvars import is_debug, get_staff_roles, get_nitro_role, get_early_roles, get_manager_roles
 #from section_manager import SectionAFKCheckManager
 from hc_afk_helpers import ConfirmView, get_field_index, ask_location
 from tracking import add_runs_done
@@ -49,6 +49,18 @@ class AFKCheck:
                       voice_ch: discord.VoiceChannel,
                       dungeon: dungeons.Dungeon,
                       location: str):
+    """Initializes an AFK check. Not that this does NOT start the AFK check.
+    All this does is set up the AFK check to be started.
+
+    Parameters:
+      manager: The SectionAFKCheckManager that manages the afks in the section
+      bot: Bot
+      ctx: Context in which the AFK was started
+      status_ch: The status channel where the AFK will be posted
+      voice_ch: The voice channel to open/close
+      dungeon: The associated dungeon
+      location: The location of the run
+    """
     self.manager = manager
     self.bot = bot
     self.ctx = ctx
@@ -64,9 +76,14 @@ class AFKCheck:
     self.reacts_prim = dungeon.get_primary_react_emojis(self.bot)
     self.reacts_second = dungeon.get_secondary_react_emojis(self.bot)
     
-    self.key_poppers = None
-    self.button_reacts = {}
+    # Key poppers is a list of Members who have reacted with a Key button and confirmed.
+    # Because there can be multiple key buttons, this is separate from the button reacts.
+    self.key_poppers: List[discord.Member] = []
+
+    # Keeps track of everyone who clicked a button.
+    self.button_reacts: Dict[int, List[discord.Member]] = {}
     
+    # Creates a list for each button react.
     for react in self.reacts_key + self.reacts_early + self.reacts_prim:
       self.button_reacts[react.id] = []
     
@@ -75,6 +92,33 @@ class AFKCheck:
     self.has_early_loc: list[discord.Member] = []
     pass
   
+  #########################################
+  ### General Helpers
+  #########################################
+
+  def _log(self, logstr):
+    if self.manager:
+      self.manager._log(f'[afk:{self.owner().display_name}] {logstr}')
+
+  def _accepting_joins(self):
+    return self.status == self.STATUS_OPEN or self.status == self.STATUS_POST or self.status == self.STATUS_OPENING
+
+  def _keys(self):
+    l = []
+    for r in self.reacts_key:
+      l.extend(self.button_reacts[r.id])
+    return l
+
+  def owner(self):
+    try:
+      return self.actual_owner
+    except AttributeError:
+      return self.ctx.author
+
+  #########################################
+  ### Starting the AFK check
+  #########################################
+
   def _build_afk_react_text(self):
     txt = ""
     for react in self.button_reacts:
@@ -115,23 +159,6 @@ class AFKCheck:
     ret += self.AFK_PANEL_INFO_ABORT
     return ret
   
-  def _log(self, logstr):
-    if self.manager:
-      self.manager._log(f'[afk:{self.owner().display_name}] {logstr}')
-    
-  # True: They were added. False: They weren't added.
-  def _user_join(self, user:discord.Member) -> bool:
-    if user not in self.joined_raiders:
-      self._log(f"New user joined: {user.display_name}")
-      self.joined_raiders.append(user)
-      return True
-    
-    self._log(f"Return user joined: {user.display_name}")
-    return False
-  
-  def _accepting_joins(self):
-    return self.status == self.STATUS_OPEN or self.status == self.STATUS_POST or self.status == self.STATUS_OPENING
-  
   AFK_FOOTER_AUTO_OPEN = 'This AFK check will open automatically in {}'
   AFK_FOOTER_AUTO_END = 'This AFK check will end automatically in {}'
   
@@ -153,7 +180,6 @@ class AFKCheck:
       noconfirm_reacts = self.reacts_prim
       footer_text = self.AFK_FOOTER_AUTO_END.format(f'{int(AFK_AUTO_END_TIMER / 60)} minutes')
       await self._open_voice()
-    
     
     # Create embeds    
     self.afk_embed = discord.Embed(description=self._build_afk_desc(lazy), timestamp=datetime.now())
@@ -185,13 +211,11 @@ class AFKCheck:
       await self.afk_msg.add_reaction(react)
     
     pass
-  
-  def _keys(self):
-    l = []
-    for r in self.reacts_key:
-      l.extend(self.button_reacts[r.id])
-    return l
-  
+
+  #########################################
+  ### AFK Status Helpers
+  #########################################
+
   async def _timer(self, time_wait: int, interval: int, lazy):
     time_left = time_wait - interval
     self._log(f'Timer: {time_wait/60}')
@@ -225,6 +249,36 @@ class AFKCheck:
     await self.voice_ch.set_permissions(self.manager.get_raider_role(), overwrite=overwrite)
     pass
   
+  async def _close_voice(self):
+    overwrite = PermissionOverwrite()
+    overwrite.view_channel = True
+    overwrite.connect = False
+    
+    await self.voice_ch.set_permissions(self.manager.get_raider_role(), overwrite=overwrite)
+  
+  async def _update_afk_reacts(self, react_emoji, user):
+    # update afk panel
+    self.afk_embed._fields[0]['value'] = self._build_afk_react_text()
+    await self.afk_msg.edit(embed=self.afk_embed)
+    
+    # update control panel
+    field_index = 1 + get_field_index(react_emoji, [self.reacts_key, self.reacts_early, self.reacts_prim])
+    if field_index == 0:
+      await self.ctx.send(f"Error: field_index of {react_emoji} was -1")
+      
+    else:
+      if self.panel_embed._fields[field_index]['value'] == 'None':
+        self.panel_embed._fields[field_index]['value'] = user.mention
+        
+      else:
+        self.panel_embed._fields[field_index]['value'] += f" {user.mention}"
+      
+      await self.panel_msg.edit(embed=self.panel_embed)
+
+  #########################################
+  ### AFK Status Modifiers
+  #########################################
+
   async def open_channel(self):    
     self._log("Channel opening.")
     
@@ -272,14 +326,7 @@ class AFKCheck:
     self.afk_embed.timestamp = datetime.now()
     await self.afk_msg.edit(embed=self.afk_embed, view=self.afk_view)
     pass
-  
-  async def _close_voice(self):
-    overwrite = PermissionOverwrite()
-    overwrite.view_channel = True
-    overwrite.connect = False
-    
-    await self.voice_ch.set_permissions(self.manager.get_raider_role(), overwrite=overwrite)
-  
+
   AFK_ENDED_TEXT = f"This AFK check has been ended. Please wait for the next one to start."
   AFK_ENDED_KEY_THANK_TEXT = "\nThank you to {} for popping a key for us."
   AFK_ENDED_KEY_THANKS_TEXT = "\nThank you to {} for popping keys for us."
@@ -296,12 +343,6 @@ class AFKCheck:
       except:
         pass
   
-  def owner(self):
-    try:
-      return self.actual_owner
-    except AttributeError:
-      return self.ctx.author
-  
   async def _end_afk(self):
     self._log("End AFK")
     self.status = self.STATUS_ENDED
@@ -312,27 +353,30 @@ class AFKCheck:
     self.afk_embed.timestamp = datetime.now()
     
     # Thank any key poppers we have
-    if self.key_poppers:
-      if len(self.key_poppers) > 1:
+    if len(self.key_poppers) > 0:
+      if len(self.key_poppers) == 1:
+        self.afk_embed.description += self.AFK_ENDED_KEY_THANK_TEXT.format(self.key_poppers[0].mention)
+
+      else:
         popper_thank = ""
-        
+
         if len(self.key_poppers) == 2:
           popper_thank = f"{self.key_poppers[0].mention} and {self.key_poppers[1].mention}"
+
         else:
           for popper in self.key_poppers[:-1]:
             popper_thank += f"{popper.mention}, "
           popper_thank += f"and {self.key_poppers[-1].mention}"
           
         self.afk_embed.description += self.AFK_ENDED_KEY_THANKS_TEXT.format(popper_thank)
-      else:
-        self.afk_embed.description += self.AFK_ENDED_KEY_THANK_TEXT.format(self.key_poppers[0].mention)
     
+    # Set the author name to the started title.
     self.afk_embed._author['name'] = self.AFK_TITLE_STARTED_TEXT.format(self.dungeon.name, self.owner().display_name)
     
-    await self.afk_msg.edit(content='This AFK has ended.', embed=self.afk_embed, view=None)
     
-    # update panel
+    # update messages
     self.panel_embed.description = 'This AFK check has ended.'
+    await self.afk_msg.edit(content='This AFK has ended.', embed=self.afk_embed, view=None)
     await self.panel_msg.edit(embed=self.panel_embed)
     
     await self.manager.remove_afk(self.owner().id, report=self.dungeon.code == dungeons.SHATTERS_DNAME)
@@ -340,7 +384,6 @@ class AFKCheck:
     # Add runs to those who are currently in the voice chat.
     add_runs_done(self.manager.guild.id, self.dungeon.code, self.voice_ch.members, self.owner())
 
-  
   async def close(self):
     self._log("Close channel")
     self.status = self.STATUS_POST
@@ -361,7 +404,13 @@ class AFKCheck:
       
       if staff is False:
         # they don't have a staff role and they didn't click join, move them out
-        await member.move_to(lounge_ch, reason='Did not click Join.')
+        # they could've moved out in the time it took to move other members out
+        # so recheck that they're in vc
+        try:
+          if member.voice and member.voice.channel and member.voice.channel.id == self.voice_ch.id:
+            await member.move_to(lounge_ch, reason='Did not click Join.')
+        except:
+          pass
     
     self.afk_view.strip_all_but_join()
     
@@ -386,30 +435,47 @@ class AFKCheck:
     await self._end_afk()
     pass
   
-  async def _update_afk_reacts(self, react_emoji, confirmed, user):
-    # update afk panel
-    self.afk_embed._fields[0]['value'] = self._build_afk_react_text()
-    await self.afk_msg.edit(embed=self.afk_embed)
+  #########################################
+  ### Button Press Helpers
+  #########################################
+
+  MOVE_SUCCESS = 0      # The user was successfully moved in.
+  MOVE_NOT_IN_VOICE = 1 # The user was not in a voice channel.
+  MOVE_ALREADY_IN = 2   # The user was already in the correct voice channel.
+  MOVE_CAPPED = 3       # The destination channel was at its cap, and force was False.
+  async def _move_in_user(self, user: discord.Member, force:bool=False):
+    if user.voice and user.voice.channel:
+      if user.voice.channel.id != self.voice_ch.id:
+        if self.voice_ch.user_limit < len(self.voice_ch.members) or force:
+          await user.move_to(self.voice_ch)
+          return self.MOVE_SUCCESS
+
+        return self.MOVE_CAPPED
+
+      return self.MOVE_ALREADY_IN
+
+    elif self.voice_ch.user_limit >= len(self.voice_ch.members) and not force:
+      return self.MOVE_CAPPED
+
+    return self.MOVE_NOT_IN_VOICE
     
-    # update control panel
-    field_index = 1 + get_field_index(react_emoji, [self.reacts_key, self.reacts_early, self.reacts_prim])
-    if field_index == 0:
-      await self.ctx.send(f"Error: field_index of {react_emoji} was -1")
-      
-    else:
-      if self.panel_embed._fields[field_index]['value'] == 'None':
-        self.panel_embed._fields[field_index]['value'] = user.mention
-        
-      else:
-        self.panel_embed._fields[field_index]['value'] += f" {user.mention}"
-      
-      await self.panel_msg.edit(embed=self.panel_embed)
+  # True:   They were added.
+  # False:  They already were added.
+  def _user_join(self, user:discord.Member) -> bool:
+    if user not in self.joined_raiders:
+      self._log(f"New user joined: {user.display_name}")
+      self.joined_raiders.append(user)
+      return True
     
-    if confirmed is True and user.id not in self.drag_raiders:
-      self.drag_raiders.append(user.id)
-      await self._move_in_user(user)
-    pass
-  
+    self._log(f"Return user joined: {user.display_name}")
+    return False
+
+  #########################################
+  ### Button Press Acknowledgements
+  #########################################
+
+  # The default maximum confirms for normally non-early/non-confirming buttons.
+  # Only used in lazy AFKs.
   AFK_PRIMARY_CONFIRM_MAX = 2
   
   ACK_BUTTON_SUCCESS = False
@@ -417,104 +483,108 @@ class AFKCheck:
   ACK_BUTTON_CAPPED = 2
   ACK_BUTTON_CONFIRMED = 3
   ACK_BUTTON_MUST_BE_IN_VC = 4
-  
-  # Return values:
-  # -True: The user can be dragged into the channel.
-  # -False: The user either doesn't need to be or shouldn't be dragged into the channel.
-  # -[str]: The location to give them. Also counts as True.
-  # -self.ACK_BUTTON_CAPPED: The maximum number of confirmed reacts has been hit.
-  # -self.ACK_BUTTON_CONFIRMED: The user has already confirmed this react.
-  # -self.ACK_BUTTON_MUST_BE_IN_VC: The user needs to be in the VC to use this react.
   async def ack_button(self, react_emoji: discord.PartialEmoji, user:discord.Member, confirmed=None) -> bool:
-    #await self.ctx.send(f'Button React by {user.display_name}: {react_emoji}')
-    self._log(f'Button: {react_emoji.name} {user.display_name} {confirmed} {user.id in self.drag_raiders}')
-    self._user_join(user) # We also treat this as a "join" of sorts.
+    """Acknowledges a button press.
+
+    Parameters:
+      react_emoji: The emoji that the user react with.
+      user: The member that clicked the button.
+      confirmed: If the user had to confirm the button press or not.
+
+    Returns:
+      ACK_BUTTON_SUCCESS: If the interaction fully succeeded. If confirmed, the person was in vc or was dragged in, if not confirmed the person was in VC.
+      ACK_BUTTON_DRAG: If the user needs to join a voice channel to get dragged in. Only returned if the button needed confirming. 
+      ACK_BUTTON_CAPPED: If the button has reached maximum capacity for early location / drags. Only returned if the button needed confirming.
+      ACK_BUTTON_CONFIRMED: If the user has already confirmed this button. Only returned if the button needed confirming.
+      ACK_BUTTON_MUST_BE_IN_VC: If the user must be in the voice channel to react with the button. Only returned if the button doesn't need confirming.
+      [str]: The location to give. This is only returned if 1) the button was confirmed, 2) the button was not capped, and 3) the user has any required roles to get early location.
+    """
+    self._log(f'Button: E:{react_emoji.name} U:{user.display_name} C:{confirmed} J:{user.id in self.drag_raiders}')
+
+    # We also treat this as a "join" of sorts.
+    self._user_join(user) 
     
+    # Check to see if they already confirmed.
     if user in self.button_reacts[react_emoji.id]:
       return self.ACK_BUTTON_CONFIRMED
     
-    capped = False
     give_location = False
     
+    # The only things that can be returned in this if/else are errors.
     if confirmed is True:
       if react_emoji in self.reacts_key:
-        if self.key_poppers is None:
-          self._log('Key react with no previous reacts. Key added.')
-          self.key_poppers = [user]
-          give_location = True
+        if self.dungeon.max_keys == 0 or len(self.key_poppers) < self.dungeon.max_keys:
+          self.key_poppers.append(user)
+          self._log(f'Key #{len(self.key_poppers)} accepted. (Max {self.dungeon.max_keys})')
         else:
-          if self.dungeon.max_keys == 0 or len(self.key_poppers) < self.dungeon.max_keys:
-            self._log(f'Additional key accepted.')
-            self.key_poppers.append(user)
-            give_location = True
-          else:
-            self._log(f'Additional key denied ({len(self.key_poppers)} Cap {self.dungeon.max_keys})')
-            return self.ACK_BUTTON_CAPPED
+          self._log(f'Key denied. (Max of {self.dungeon.max_keys} reached)')
+          return self.ACK_BUTTON_CAPPED
+        
+        # If we reach here, they need location.
+        give_location = True
         
       elif react_emoji in self.reacts_early:
         # check for cap / necessary role
         needed = self.dungeon.react_early[react_emoji.id]
         self._log(f'Checking early react: {needed[0]} {needed[1]}')
+
+        # needed[0] is the maximum for this early react.
+        # needed[1] is the name of the role that's required.
         if len(self.button_reacts[react_emoji.id]) >= needed[0]:
           return self.ACK_BUTTON_CAPPED
+
+        # if no role is needed then simply give them early location.
         if needed[1] is None or needed[1] in [role.name for role in user.roles]:
           give_location = True
-        pass
       
       else:
+        # This is only reached if the AFK check is lazy and the button pressed was a primary react.
         if len(self.button_reacts[react_emoji.id]) >= self.AFK_PRIMARY_CONFIRM_MAX:
           return self.ACK_BUTTON_CAPPED
     else:
+      # Non-confirmed reacts only require that people be in the VC.
+      # If they are, then they succeed. That easy. 
       if user not in self.voice_ch.members:
         return self.ACK_BUTTON_MUST_BE_IN_VC
     
     # Add them
     self.button_reacts[react_emoji.id].append(user)
     await self._update_afk_reacts(react_emoji, confirmed, user)
+
+    # If they confirmed, move them in to voice chat.
+    if confirmed and user.id not in self.drag_raiders:
+      self.drag_raiders.append(user.id)
+      await self._move_in_user(user, force=True)
     
-    # send location
-    if capped:
-      return self.ACK_BUTTON_CAPPED
-    
-    if give_location:# react_emoji in self.reacts_key + self.reacts_early:
+    if give_location:
+      # Keeps track of who has location so we can update them if it changes.
       if user not in self.has_early_loc:
         self.has_early_loc.append(user)
       return self.location
     
+    # Returns TRUE if the need a drag.
+    # FALSE if they don't need one.
     return self.status != self.STATUS_OPEN and user not in self.voice_ch.members
     pass
-  
-  MOVE_SUCCESS = 0
-  MOVE_NOT_IN_VOICE = 1
-  MOVE_ALREADY_IN = 2
-  MOVE_CAPPED = 3
-  # Return:
-  # -True: User was moved in.
-  # -False: User was not moved in due to the voice cap.
-  async def _move_in_user(self, user: discord.Member, force:bool=False):
-    if self.voice_ch.user_limit >= len(self.voice_ch.members) or force:
-      if user.voice and user.voice.channel:
-        if user.voice.channel.id != self.voice_ch.id:
-          await user.move_to(self.voice_ch)
-          return self.MOVE_SUCCESS
-        return self.MOVE_ALREADY_IN
-      return self.MOVE_NOT_IN_VOICE
-    return self.MOVE_CAPPED
-  
-  
   
   ACK_JOIN_SUCCESS = 0
   ACK_JOIN_NEED_DRAG = 1
   ACK_JOIN_SAY_NOTHING = 2
   ACK_JOIN_WAIT = 3
   ACK_JOIN_CANNOT_JOIN = 4
-  # Return values:
-  # -None: They're already in the voice channel & participating, say nothing
-  # -False: They don't need to be dragged in.
-  # -True: They need to be dragged in
-  # -'no': They must wait for the channel to open.
-  # -'bad': They were unable to be moved in.
-  async def ack_join(self, user: discord.Member) -> bool:
+  async def ack_join(self, user: discord.Member) -> int:
+    """Acknowledges clicking the Join button.
+
+    Parameters:
+      user: the member that clicked the button
+
+    Returns:
+      ACK_JOIN_SUCCESS: They were either in VC and not joined, or they were moved in and joined.
+      ACK_JOIN_NEED_DRAG: They could not be dragged in, but will be dragged in once the VC opens.
+      ACK_JOIN_SAY_NOTHING: They've already clicked the join button and they're in the voice channel.
+      ACK_JOIN_WAIT: They've already clicked the join button, they aren't in the voice channel, and the voice channel is not open.
+      ACK_JOIN_CANNOT_JOIN: They aren't in the voice channel and cannot join the raid due to the run being capped.
+    """
     for early_role in get_early_roles(self.ctx.guild.id):
       if early_role in [role.id for role in user.roles]:
         await self._move_in_user(user, force=True)
@@ -523,21 +593,29 @@ class AFKCheck:
         if user not in self.has_early_loc:
           self.has_early_loc.append(user)
         return self.location if self._user_join(user) else self.ACK_JOIN_SAY_NOTHING
-    
+
     if self._user_join(user):
+      # First click
       if self._accepting_joins():
         move_res = await self._move_in_user(user)
         
         if move_res == self.MOVE_CAPPED:
           return self.ACK_JOIN_CANNOT_JOIN
+
+        if move_res == self.MOVE_NOT_IN_VOICE:
+          return self.ACK_JOIN_NEED_DRAG
         
         return self.ACK_JOIN_SUCCESS
-      
+
+      # If we aren't accepting joins but they're already in the voice channel, success
       elif user.voice and user.voice.channel and user.voice.channel.id == self.voice_ch.id:
         return self.ACK_JOIN_SUCCESS
       
+      # They will be dragged later.
       return self.ACK_JOIN_NEED_DRAG
+    
     else:
+      # Repeat click
       if self._accepting_joins():
         move_res = await self._move_in_user(user)
         
@@ -546,6 +624,7 @@ class AFKCheck:
         
         return self.ACK_JOIN_SAY_NOTHING
       
+      # If we aren't accepting joins but they're already in the voice channel, say nothing
       elif user.voice and user.voice.channel and user.voice.channel.id == self.voice_ch.id:
         return self.ACK_JOIN_SAY_NOTHING
       
@@ -554,8 +633,17 @@ class AFKCheck:
   ACK_NITRO_FAIL = 0
   ACK_NITRO_SUCCESS = 1
   ACK_NITRO_REPEAT = 2
-  async def ack_nitro(self, user: discord.Member) -> bool:
-    self._user_join(user)
+  async def ack_nitro(self, user: discord.Member) -> int:
+    """Acknowledges a nitro button.
+
+    Parameters:
+      user: The person who clicked the button.
+    
+    Returns:
+      ACK_NITRO_FAIL: The user doesn't have an appropriate role.
+      ACK_NITRO_SUCCESS: The user has an appropriate role and this is their first click.
+      ACK_NITRO_REPEAT: The user has an appropriate role and this is a repeat click.
+    """
     nitro_role = get_nitro_role(self.ctx.guild.id)
     early_roles = get_early_roles(self.ctx.guild.id)
     if nitro_role != '' or len(early_roles) > 0:
@@ -567,18 +655,19 @@ class AFKCheck:
           break
       
       if early or (nitro_role and nitro_role in user.roles):
+        self._user_join(user)
         await self._move_in_user(user, force=True)
+
+        # this isn't 100% perfect but it works
         if user not in self.has_early_loc:
           self.has_early_loc.append(user)
+
         if user.id not in self.drag_raiders:
           self.drag_raiders.append(user.id)
           return self.ACK_NITRO_SUCCESS
         
         return self.ACK_NITRO_REPEAT
     return self.ACK_NITRO_FAIL
-    pass
-  
-  pass
 
 class AFKCheckPanelEndButton(discord.ui.Button):
   STYLE = discord.ButtonStyle.green
@@ -591,7 +680,12 @@ class AFKCheckPanelEndButton(discord.ui.Button):
   async def callback(self, interaction: discord.Interaction):
     assert self.view is not None
     if interaction.user.id != self.view.afk_check.owner().id:
+      for role in get_manager_roles():
+        if role in [r.name for r in interaction.user.roles]:
+          await self.view.close_afk(interaction)
+
       await interaction.response.send_message(content="You are not the owner of this AFK check.")
+
     await self.view.close_afk(interaction)
 
 class AFKCheckPanelOpenButton(discord.ui.Button):  
@@ -602,7 +696,13 @@ class AFKCheckPanelOpenButton(discord.ui.Button):
   async def callback(self, interaction: discord.Interaction):
     assert self.view is not None
     if interaction.user.id != self.view.afk_check.owner().id:
-      await interaction.response.send_message(content="You are not the owner of this AFK check.", ephemeral=True)
+      manager = False
+      for role in get_manager_roles():
+        if role in [r.name for r in interaction.user.roles]:
+          break
+
+      if not manager:
+        await interaction.response.send_message(content="You are not the owner of this AFK check.", ephemeral=True)
     
     if self.click:
       if self.view.afk_check.status == AFKCheck.STATUS_OPENING:
@@ -628,6 +728,10 @@ class AFKCheckPanelAbortButton(discord.ui.Button):
     assert self.view is not None
     
     if interaction.user.id != self.view.afk_check.owner().id:
+      for role in get_manager_roles():
+        if role in [r.name for r in interaction.user.roles]:
+          await self.view.abort_afk(interaction)
+
       await interaction.response.send_message(content="You are not the owner of this AFK check.")
     
     await self.view.abort_afk(interaction)

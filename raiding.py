@@ -6,7 +6,7 @@ from typing import List, Dict, Optional, Tuple
 from globalvars import RaidingSection, get_event_roles, get_raid_roles, confirmation
 
 import dungeons
-from hc_afk_helpers import channel_checks, create_list, dungeon_checks, get_voice_ch, ask_location
+from hc_afk_helpers import channel_checks, create_list, dungeon_checks, get_voice_ch, ask_location, log
 from hc_afk_helpers import DCHECK_LIST, DCHECK_INVALID
 import section_manager as sm
 
@@ -342,25 +342,32 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
       dungeon = dungeons.get(dungeons.SHATTERS_DNAME)
       assert dungeon
       
+      log(f"AFK command {ctx.author.display_name}: ^afk {' '.join(args)}")
       lazy = False
       loc = None
       cap = None
       if len(args) > 0:
         args_parsed = 0
         if args[0].lower() == 'z' or args[0].lower() == 'l' or args[0].lower == 'lazy':
+          log(f'- ({args_parsed}) Parsed Z/L/Lazy')
           lazy = True
           args_parsed += 1
         elif args[0].lower() == 's':
+          log(f'- ({args_parsed}) Parsed S')
           args_parsed += 1
           
         if args_parsed < len(args):
+          log(f'- ({args_parsed}) Additional parameters detected')
           try:
             cap = int(args[args_parsed])        
+            log(f'- Cap found: {cap}')
             args_parsed += 1          
           except ValueError:
+            log(f'- ({args_parsed}) No cap found')
             pass
         
           if args_parsed < len(args):
+            log(f'- ({args_parsed}) Additional args taken as location: {args[args_parsed:]}')
             loc = ' '.join(args[args_parsed:])
 
       await self.afk_main(ctx, dungeon, section, lazy, cap, loc)

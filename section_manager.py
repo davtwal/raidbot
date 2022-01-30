@@ -10,6 +10,7 @@ import dungeons
 from globalvars import get_section, get_vetraider_role, get_raider_role
 import afk_check as ac
 from headcount import Headcount
+from hc_afk_helpers import log
 
 class SectionAFKCheckManager:
   def __init__(self, guild: discord.Guild, sectionname):
@@ -20,7 +21,7 @@ class SectionAFKCheckManager:
     pass
   
   def _log(self, logstr):
-    print(f'({datetime.now().replace(microsecond=0).time()})[{self.guild.name}][{self.section.name}] {logstr}')
+    log(f'[{self.guild.name}][{self.section.name}] {logstr}')
   
   async def try_create_afk( self, bot: commands.Bot,
                             ctx: commands.Context,
@@ -174,9 +175,8 @@ class SectionAFKCheckManager:
       if member.id in afk.drag_raiders:
         
         #If they do, make sure they're either in lounge or in the correct drag channel.
-        afk_voice_index = self.section.voice_chs.index(afk.voice_ch.id)
-      
         try:
+          afk_voice_index = self.section.voice_chs.index(afk.voice_ch.id)
           drag_index = self.section.drag_chs.index(member.voice.channel.id)
           if afk_voice_index != drag_index:
             # They're in the wrong drag channel.
@@ -185,7 +185,7 @@ class SectionAFKCheckManager:
           # In this scenario, they're in the lounge channel.
           pass
         
-        await afk._move_in_user(member)       
+        await afk._move_in_user(member, force=True)       
     pass
     
   pass

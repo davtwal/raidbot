@@ -46,7 +46,7 @@ class Dungeon:
   def _build_portal_emoji(self, bot):
     portal = bot.get_emoji(self.react_portals[0])
     if portal is None:
-      portal = ':blue_circle:'
+      portal = '🔵'
     return str(portal)
   
   def _build_key_emoji(self, bot):
@@ -55,7 +55,7 @@ class Dungeon:
       keymoji = bot.get_emoji(key)
       if keymoji is None:
         if key_emoji_str == "":
-          key_emoji_str = ":key:"
+          key_emoji_str = "🔑"
           break
         else:
           continue
