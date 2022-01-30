@@ -30,6 +30,8 @@ class SectionAFKCheckManager:
                             dungeon: dungeons.Dungeon,
                             lazy: bool,
                             location: str) -> bool:
+
+    log(f'Attempting to create {"lazy" if lazy else ""} AFK check')
     if ctx.author.id in self.active_afks:
       self._log(f'{ctx.author.display_name} attempted to create AFK while already having one.')
       await ctx.send("You already have an AFK check running!")
@@ -39,7 +41,7 @@ class SectionAFKCheckManager:
       if dungeon.code == self.active_hcs[ctx.author.id].dungeon.code:
         # convert it instead
         self._log(f'{ctx.author.display_name} used afk command to convert afk')
-        return await self.try_convert_hc_to_afk(self.active_hcs[ctx.author.id], voice_ch, location, lazy)
+        return await self.try_convert_hc_to_afk(self.active_hcs[ctx.author.id], voice_ch, lazy, location)
       else:
         self._log(f'{ctx.author.display_name} tried to afk command while diff dung hc')
         await ctx.send("You already have a headcount up for a different dungeon.")
@@ -94,7 +96,7 @@ class SectionAFKCheckManager:
           await hc.ctx.send(f"There is already a(n) {hc.dungeon.name} AFK check up in this section. Please try again after it's closed.")
           return False
 
-    hc._finalize_convert(lazy)
+    await hc._finalize_convert(lazy)
     self.active_afks[hc.owner().id] = ac.AFKCheck(self, hc.bot, hc.ctx, hc.status_ch, voice_ch, hc.dungeon, location)
     await self.active_afks[hc.owner().id].start_afk(lazy)
     
