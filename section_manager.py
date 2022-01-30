@@ -93,7 +93,8 @@ class SectionAFKCheckManager:
           self._log(f'{hc.owner().display_name} attempted to create a {hc.dungeon.name} AFK while one exists.')
           await hc.ctx.send(f"There is already a(n) {hc.dungeon.name} AFK check up in this section. Please try again after it's closed.")
           return False
-    
+
+    hc._finalize_convert(lazy)
     self.active_afks[hc.owner().id] = ac.AFKCheck(self, hc.bot, hc.ctx, hc.status_ch, voice_ch, hc.dungeon, location)
     await self.active_afks[hc.owner().id].start_afk(lazy)
     

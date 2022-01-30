@@ -166,6 +166,22 @@ class Headcount:
     await self.panel_msg.add_reaction(REACT_WASTE)
     pass
   
+  async def _finalize_convert(self, lazy):
+    self.status = self.STATUS_ENDED
+      
+    self.react_task.cancel()
+    self.loop_task.cancel()
+    self.auto_end_task.cancel()
+      
+    self.panel_embed.description = 'This headcount has been converted.'
+    self.panel_embed.timestamp = datetime.now()
+    await self.panel_msg.edit(embed=self.panel_embed, view=None)
+    await self.panel_msg.add_reaction(REACT_PLAY if lazy else REACT_CHECK)
+      
+    self.status_embed.description = 'This headcount was converted into an AFK check.'
+    await self.status_msg.edit(content='Headcount converted.', embed=self.status_embed)
+      
+
   async def _do_convert(self, lazy):
     location = await ask_location(self.bot, self.ctx)
     if location is None:
@@ -177,27 +193,14 @@ class Headcount:
       self.status = self.STATUS_GATHERING
       return
     
+    # try_convert calls _finalize_convert for us
+    # as that function can also be called from a command.
     success = await self.manager.try_convert_hc_to_afk(self, voice_ch, lazy, location)
     
-    if success:
-      self.status = self.STATUS_ENDED
-      
-      self.react_task.cancel()
-      self.loop_task.cancel()
-      self.auto_end_task.cancel()
-      
-      self.panel_embed.description = 'This headcount has been converted.'
-      self.panel_embed.timestamp = datetime.now()
-      await self.panel_msg.edit(embed=self.panel_embed, view=None)
-      await self.panel_msg.add_reaction(REACT_PLAY if lazy else REACT_CHECK)
-      
-      self.status_embed.description = 'This headcount was converted into an AFK check.'
-      await self.status_msg.edit(content='Headcount converted.', embed=self.status_embed)
-      
-      
-    else:
+    if not success:
       self.status = self.STATUS_GATHERING
   
+  # This needs to return fast so the interaction doesn't fail.
   async def convert_to_afk(self, lazy):
     if self.status != self.STATUS_GATHERING:
       return
