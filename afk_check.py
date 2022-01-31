@@ -502,6 +502,7 @@ class AFKCheck:
       ACK_BUTTON_MUST_BE_IN_VC: If the user must be in the voice channel to react with the button. Only returned if the button doesn't need confirming.
       [str]: The location to give. This is only returned if 1) the button was confirmed, 2) the button was not capped, and 3) the user has any required roles to get early location.
     """
+    print('ack button afk')
     self._log(f'Button: E:{react_emoji.name} U:{user.display_name} C:{confirmed} J:{user.id in self.drag_raiders}')
 
     # We also treat this as a "join" of sorts.
@@ -552,7 +553,7 @@ class AFKCheck:
     
     # Add them
     self.button_reacts[react_emoji.id].append(user)
-    await self._update_afk_reacts(react_emoji, confirmed, user)
+    await self._update_afk_reacts(react_emoji, user)
 
     # If they confirmed, move them in to voice chat.
     if confirmed and user.id not in self.drag_raiders:
@@ -815,6 +816,8 @@ class AFKCheckAFKButton(discord.ui.Button):
   async def callback(self, interaction: discord.Interaction):
     drag_channel_mentions = self.view.afk_check.manager.get_move_channel_mentions(self.view.afk_check.voice_ch.id)
     
+    print(f'button click {self.emoji.name}')
+
     ##########
     # Nitro
     if self.confirm == 'nitro':
@@ -913,9 +916,11 @@ class AFKCheckAFKView(discord.ui.View):
     self.add_item(AFKCheckAFKButton(label='Nitro', emoji=nitro, style=discord.ButtonStyle.blurple, confirm='nitro'))
   
   async def ack_join(self, user):
+    print('view ack join')
     return await self.afk_check.ack_join(user)
     
   async def ack_button(self, react_emoji, user, confirm=None):
+    print('view ack button')
     return await self.afk_check.ack_button(react_emoji, user, confirm)
   
   async def ack_nitro(self, user):
