@@ -408,7 +408,10 @@ class AFKCheck:
         # so recheck that they're in vc
         try:
           if member.voice and member.voice.channel and member.voice.channel.id == self.voice_ch.id:
-            await member.move_to(lounge_ch, reason='Did not click Join.')
+            try:
+              await member.move_to(lounge_ch, reason='Did not click Join.')
+            except:
+              pass
         except:
           pass
     
@@ -446,11 +449,11 @@ class AFKCheck:
   async def _move_in_user(self, user: discord.Member, force:bool=False):
     if user.voice and user.voice.channel:
       if user.voice.channel.id != self.voice_ch.id:
-        if self.voice_ch.user_limit < len(self.voice_ch.members) or force:
+        if self.voice_ch.user_limit >= len(self.voice_ch.members) or force:
           try:
             await user.move_to(self.voice_ch)
             return self.MOVE_SUCCESS
-          except:
+          except discord.errors.HTTPException:
             return self.MOVE_NOT_IN_VOICE
 
         return self.MOVE_CAPPED
@@ -596,6 +599,7 @@ class AFKCheck:
           self.drag_raiders.append(user.id)
         if user not in self.has_early_loc:
           self.has_early_loc.append(user)
+        self._log(f'Join by {user.display_name}: Early role found.')
         return self.location if self._user_join(user) else self.ACK_JOIN_SAY_NOTHING
 
     if self._user_join(user):
@@ -604,18 +608,23 @@ class AFKCheck:
         move_res = await self._move_in_user(user)
         
         if move_res == self.MOVE_CAPPED:
+          self._log(f'Join by {user.display_name}: Initial join, capped.')
           return self.ACK_JOIN_CANNOT_JOIN
 
         if move_res == self.MOVE_NOT_IN_VOICE:
+          self._log(f'Join by {user.display_name}: Initial join, not in voice.')
           return self.ACK_JOIN_NEED_DRAG
         
+        self._log(f'Join by {user.display_name}: Initial join success.')
         return self.ACK_JOIN_SUCCESS
 
       # If we aren't accepting joins but they're already in the voice channel, success
       elif user.voice and user.voice.channel and user.voice.channel.id == self.voice_ch.id:
+        self._log(f'Join by {user.display_name}: Initial join, not open, success.')
         return self.ACK_JOIN_SUCCESS
       
       # They will be dragged later.
+      self._log(f'Join by {user.display_name}: Initial join, not open, need drag.')
       return self.ACK_JOIN_NEED_DRAG
     
     else:
@@ -624,14 +633,18 @@ class AFKCheck:
         move_res = await self._move_in_user(user)
         
         if move_res == self.MOVE_CAPPED:
+          self._log(f'Join by {user.display_name}: Repeat join capped.')
           return self.ACK_JOIN_CANNOT_JOIN
         
+        self._log(f'Join by {user.display_name}: Repeat join success.')
         return self.ACK_JOIN_SAY_NOTHING
       
       # If we aren't accepting joins but they're already in the voice channel, say nothing
       elif user.voice and user.voice.channel and user.voice.channel.id == self.voice_ch.id:
+        self._log(f'Join by {user.display_name}: Repeat join, closed, success.')
         return self.ACK_JOIN_SAY_NOTHING
       
+      self._log(f'Join by {user.display_name}: Repeat join wait.')
       return self.ACK_JOIN_WAIT   
   
   ACK_NITRO_FAIL = 0
