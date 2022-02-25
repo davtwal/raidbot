@@ -5,6 +5,8 @@ import discord
 from discord.ext import commands
 from raiding import get_managers
 
+from tracking import close_connections
+
 # Actual cog
 
 class AdminCmds(commands.Cog):
@@ -262,6 +264,7 @@ class AdminCmds(commands.Cog):
   @commands.has_any_role(*g.get_admin_roles())
   async def do_exit(self, ctx):
     """[Admin+] Restarts the bot."""
+    close_connections()
     g.save_json(g.SHATTERS_JSON_TXT)
     exit(-1)
   
