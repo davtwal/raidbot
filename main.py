@@ -27,6 +27,7 @@ class ShattersBot(commands.Bot):
   async def on_ready(self):
     print(f'Bot logged in: {self.user} (ID {self.user.id})')
     print('-----------------------------------------------')
+    #super().activity = discord.Game(name='shamters')
     
     manager_setups: Dict[int, List[str]] = {}
 
@@ -86,8 +87,12 @@ class RunsWhenCog(commands.Cog):
       return
     
     if (self.bot.user.mentioned_in(message) and not message.mention_everyone) or message.content.lower().find("shattsbot") != -1:
-      mention_reacts = ['😳', '😚', '🥰', '😤', '🥴', '🤪', '😵', '🤡', '🤭', '🔨', '🍆', '🍑', '💦', '⁉', '🆗']
+      mention_reacts = ['😳', '😚', '🥰', '😤', '🥴', '🤪', '😵', '🤡', '🤭', '🔨', '🍆', '🍑', '💦', '⁉', '🆗', '🤷‍♀️', '😘', '🤐', '😫', '🤫', '👁', '👀']
       random.seed()
+      if message.author.id == 180490033244012545:
+        await message.reply("perish, admin")
+        return
+
       await message.add_reaction(mention_reacts[random.randint(0, len(mention_reacts) - 1)])
       
     findme = ['runs when', 'when runs', 'no runs', 'shatts when', 'when shatts', 'where runs', 'runs where', 'shatts where', 'where shatts',
@@ -96,9 +101,13 @@ class RunsWhenCog(commands.Cog):
     
     already_rl = ['Whenever you want, bud.', 'At your leisure.', 'Idk bro you tell me', 'Good question, *RL*.',
                   message.content, 'Something seems off about YOU saying that...', 'xd']
-    
+
     for msg in findme:
       if message.content.lower().find(msg) != -1:
+        if message.author.id == 278663969256898561:
+          await message.reply("Justin please come back I'm begging you we need you you are the chosen one :(((((")
+          return
+
         rl_roles = get_raid_roles()
         for role in message.author.roles:
           if str(role) in rl_roles:

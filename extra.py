@@ -3,7 +3,7 @@ import discord
 import asyncio
 from discord.ext import commands
 
-from globalvars import get_staff_roles, get_event_roles, get_manager_roles, get_raidstream_role, get_raider_role, get_vetraider_role
+from globalvars import get_veteran_roles, get_staff_roles, get_event_roles, get_manager_roles, get_raidstream_role, get_raider_role, get_vetraider_role
 from globalvars import confirmation
 from globalvars import get_section_from_voice_ch
 
@@ -248,4 +248,19 @@ class ExtraCmds(commands.Cog, name='Extra Commands'):
       else:
         await member.add_roles(role, reason=f'Add Streaming role, by {ctx.author.display_name}')
     
-    
+  @commands.command(name='countrole')
+  @commands.has_any_role(*get_veteran_roles())
+  async def countrole(self, ctx: commands.Context, *id_or_nameparts):
+    if len(id_or_nameparts == 0):
+      ctx.send('You must give an role ID or name.')
+      return
+
+    try:
+      id = int(id_or_nameparts[0])
+      role = ctx.guild.role
+    except:
+      if len(id_or_nameparts > 1):
+        name = ' '.join(id_or_nameparts)
+      else:
+        name = id_or_nameparts[0]
+    pass

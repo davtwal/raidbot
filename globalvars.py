@@ -30,6 +30,19 @@ Example: \"raiderMan\" => \"[raiderMan]\""""
 # Tier 4: Managers        (Have all perms except bot dev & setup)
 # Tier 5: Dev/Owner       (All perms)
 
+# Role Types:
+# Type 0: Administrtators and Developers. Has full control over the bot.
+# Type 1: Managers. Can do everything except debug / setup commands. Has perms of Type 2 a/b/c and Type 3.
+# Type 2: Leaders. Can lead raids.
+#      2a: Veteran Leaders. Can lead raids in 'Veteran' sections. Has no effect on what dungeons they can run. Can vet-ban.
+#      2b: Whitelisted Leaders. Can lead any dungeon in any non-veteran section that allows them.
+#      2c: Event Leaders. Can lead non-whitelisted dungeons in non-veteran sections that allow them.
+# Type 3: Security / Management.
+#      3a: Helpers. Can warn and suspend. 
+#      3b: Vet Control. Can warn, suspend, and vetban. 
+#      3b: Security. Can verify (all kinds) and blacklist from Mod-Mail.
+#      3c: Officers. Can purge, lockdown, and change log.
+
          #Shatters                                                  #Fungal           #Dungeoneer
 ROLES = [['Trial Raid Leader', 'Verifier', 'Security', 'Officer',   'Helper',         'Trial Leader'],
          ['Event Raid Leader',                                      'Event Master',   'Event Leader'],
@@ -44,6 +57,9 @@ ROLES = [['Trial Raid Leader', 'Verifier', 'Security', 'Officer',   'Helper',   
 # Roles should be IDs, but for example's sake they're names
 # E.g:
 # 'shatters': ['Almost Shatters Leader', 'Shatters Leader']
+# This has not been implemented yet.
+
+
 
 def get_admin_roles() -> List[str]:
   return ROLES[-1]
@@ -73,6 +89,10 @@ GDICT_RAIDER_ROLE = 'raiderrole'
 GDICT_VETRAIDER_ROLE = 'vetrole'
 GDICT_NITRO_ROLE = 'nitro'
 GDICT_EARLY_ROLES = 'earlies'
+GDICT_SUSPROOF_CH = 'susproof'
+GDICT_DEAFCHECK_WARNTIME = 'deafch_warn'      # Amount of time after deafening where a raider gets warned (s).
+GDICT_DEAFCHECK_SUSTIME = 'deafch_susp'       # Amount of time after being warned where the RL is notified (s).
+GDICT_AFK_RELEVANTTIME = 'afk_relevant_time'  # Amount of time an AFK check is considered 'relevant' for a voice channel.
 
 # raiding sections
 GDICT_SECTIONS = 'sections'
@@ -88,6 +108,10 @@ DEFAULT_GUILD_DICT = {
   GDICT_VETRAIDER_ROLE: '',
   GDICT_NITRO_ROLE: '',
   GDICT_EARLY_ROLES: [],
+  GDICT_SUSPROOF_CH: 0,
+  GDICT_DEAFCHECK_WARNTIME: 2,
+  GDICT_DEAFCHECK_SUSTIME: 90,
+  GDICT_AFK_RELEVANTTIME: 30 * 60, # 30 minutes
 #  GDICT_DUNGEON_ROLE_WHITELIST: {},
   GDICT_SECTIONS: {}
 }
@@ -113,6 +137,18 @@ def get_nitro_role(guild_id) -> str:
 def get_early_roles(guild_id) -> List[str]:
   return gdict[guild_id][GDICT_EARLY_ROLES]
 
+def get_susproof_channel(guild_id) -> str:
+  return gdict[guild_id][GDICT_SUSPROOF_CH]
+
+def get_deafcheck_warntime(guild_id) -> int:
+  return gdict[guild_id][GDICT_DEAFCHECK_WARNTIME]
+
+def get_deafcheck_sustime(guild_id) -> int:
+  return gdict[guild_id][GDICT_DEAFCHECK_SUSTIME]
+
+def get_afk_relevanttime(guild_id) -> int:
+  return gdict[guild_id][GDICT_AFK_RELEVANTTIME]
+
 #def get_role_whitelist(guild_id) -> Dict[str, List[int]]:
 #  return gdict[guild_id][GDICT_DUNGEON_ROLE_WHITELIST]
 
@@ -128,18 +164,20 @@ def get_role_tier(role) -> int:
 class RaidingSection:
   def __init__(self, name:str, input_dict:dict):    
     self.name = name
-    self.cmd_ch:int           = self._try_add(input_dict, 'cmd_ch')
-    self.status_ch:int        = self._try_add(input_dict, 'status_ch')
-    self.run_info_ch:int      = self._try_add(input_dict, 'run_info_ch')
-    self.min_role_tier:int    = self._try_add(input_dict, 'min_role_tier')
-    self.lounge_ch:int        = self._try_add(input_dict, 'lounge_ch')
-    self.voice_chs:List[int]  = self._try_add(input_dict, 'voice_chs')
-    self.drag_chs:List[int]   = self._try_add(input_dict, 'drag_chs')
-    self.is_vet:bool          = self._try_add(input_dict, 'is_vet')
-    self.allow_unlock:bool    = self._try_add(input_dict, 'allow_unlock')
-    self.allow_setcap:bool    = self._try_add(input_dict, 'allow_setcap')
-    self.vc_min:int           = self._try_add(input_dict, 'min_vc_cap')
-    self.vc_max:int           = self._try_add(input_dict, 'max_vc_cap')
+    self.cmd_ch:int           = self._try_add(input_dict, 'cmd_ch')         # Raid announcement channel
+    self.status_ch:int        = self._try_add(input_dict, 'status_ch')      # Bot command channel
+    self.run_info_ch:int      = self._try_add(input_dict, 'run_info_ch')    # 'Run info' channel
+    self.min_role_tier:int    = self._try_add(input_dict, 'min_role_tier')  # Minimum role tier required to put up runs/headcounts
+    self.lounge_ch:int        = self._try_add(input_dict, 'lounge_ch')      # Lounge voice channel
+    self.voice_chs:List[int]  = self._try_add(input_dict, 'voice_chs')      # Raiding voice channels
+    self.drag_chs:List[int]   = self._try_add(input_dict, 'drag_chs')       # Respective drag channels
+    self.is_vet:bool          = self._try_add(input_dict, 'is_vet')         # Veteran-only channel
+    self.allow_unlock:bool    = self._try_add(input_dict, 'allow_unlock')   # If the voice channel can be locked/unlocked with ^lock
+    self.allow_setcap:bool    = self._try_add(input_dict, 'allow_setcap')   # If the voice channel cap can be altered
+    self.vc_min:int           = self._try_add(input_dict, 'min_vc_cap')     # Minimum VC cap
+    self.vc_max:int           = self._try_add(input_dict, 'max_vc_cap')     # Maximum VC cap
+    self.deafcheck:bool       = self._try_add(input_dict, 'deafcheck')      # If we care about people being deafened in runs for too long
+    self.deafcheck_vet:bool   = self._try_add(input_dict, 'deafcheck_vet')  # If we care about veterans being deafened in runs for too long
     
     if 'whitelist' in input_dict and input_dict['whitelist'] is not None:
       self.whitelist:List[str] = input_dict['whitelist']
@@ -178,6 +216,8 @@ class RaidingSection:
       'allow_setcap': self.allow_setcap,
       'min_vc_cap': self.vc_min,
       'max_vc_cap': self.vc_max,
+      'deafcheck': self.deafcheck,
+      'deafcheck_vet': self.deafcheck_vet
     }
     if self.whitelist is not None:
       d['whitelist'] = self.whitelist
@@ -200,7 +240,9 @@ class RaidingSection:
     elif key == 'max_vc_cap':     return self.vc_max
     elif key == 'whitelist':      return self.whitelist
     elif key == 'blacklist':      return self.blacklist
-    
+    elif key == 'deafcheck':      return self.deafcheck
+    elif key == 'deafcheck_vet':  return self.deafcheck_vet
+
   def __setitem__(self, key, value:str):
     try:
       if key == 'cmd_ch':           self.cmd_ch         = int(value)
@@ -217,6 +259,8 @@ class RaidingSection:
       elif key == 'max_vc_cap':     self.vc_max         = int(value)
       elif key == 'whitelist':      self.whitelist      = [x for x in value.split()]
       elif key == 'blacklist':      self.blacklist      = [x for x in value.split()]
+      elif key == 'deafcheck':      self.deafcheck      = bool(value)
+      elif key == 'deafcheck_vet':  self.deafcheck_vet  = bool(value)
     except:
       print(f'error in setting {key} to {value}')
     
@@ -236,6 +280,8 @@ class RaidingSection:
     elif key == 'max_vc_cap':     del self.vc_max
     elif key == 'whitelist':      del self.whitelist
     elif key == 'blacklist':      del self.blacklist
+    elif key == 'deafcheck':      del self.deafcheck
+    elif key == 'deafcheck_vet':  del self.deafcheck_vet
   
   def __str__(self):
     return str(self.__dict__())
@@ -343,7 +389,7 @@ async def confirmation(ctx: commands.Context, bot: commands.Bot, text, checktext
     return not user.bot and user.id == auth.id and react.message == msg and react.emoji in [REACT_CHECK, REACT_X]
   
   try:
-    react, ignored = await bot.wait_for('reaction_add', check=react_check, timeout=timeout)
+    react, _ = await bot.wait_for('reaction_add', check=react_check, timeout=timeout)
     await msg.clear_reactions()
   
     if react.emoji == REACT_CHECK:

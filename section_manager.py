@@ -1,13 +1,12 @@
 from datetime import datetime
-from shutil import move
-from typing import Dict
+from typing import Dict, Tuple
 import asyncio
 
 import discord
 from discord.ext import commands
 
 import dungeons
-from globalvars import get_section, get_vetraider_role, get_raider_role
+from globalvars import get_section, get_vetraider_role, get_raider_role, get_afk_relevanttime
 import afk_check as ac
 from headcount import Headcount
 from hc_afk_helpers import log
@@ -16,8 +15,20 @@ class SectionAFKCheckManager:
   def __init__(self, guild: discord.Guild, sectionname):
     self.guild = guild
     self.section = get_section(guild.id, sectionname)
+
+    # Keeps track of actively running AFK checks.
+    # Key: Owner's ID. Value: AFK check.
     self.active_afks: Dict[int, ac.AFKCheck] = {}
+
+    # Keeps track of actively running headcounts.
+    # Key: Owner's ID. Value: Headcount.
     self.active_hcs: Dict[int, Headcount] = {}
+
+    # Keeps track of the previous AFK checks' owners for each voice channel.
+    # This is used for deaf checking, as AFK checks are removed once they are ended
+    # but deafen checking is needed _after_ the AFK ends.
+    # Key: Voice channel ID. Value: Tuple(Last AFK check's owner's ID, last AFK check datetime)
+    self.previous_afks: Dict[int, Tuple[int, datetime]] = {}
     pass
   
   def _log(self, logstr):
@@ -83,6 +94,7 @@ class SectionAFKCheckManager:
         return False
     
     self.active_hcs[ctx.author.id] = Headcount(self, bot, ctx, status_ch, dungeon)
+    
     await self.active_hcs[ctx.author.id].start()
     return True
     
@@ -119,6 +131,23 @@ class SectionAFKCheckManager:
     else: 
       return None
   
+  def has_relevant_afk(self, voice_chid: int) -> int:
+    # Return's 0 if no relevant AFK check, or the owner's ID if there is one.
+    if voice_chid in self.section.voice_chs:
+
+      # Check active AFKs first. If there's an active AFK, that's more relevant than any previous one.
+      for afk_owner in self.active_afks:
+        if self.active_afks[afk_owner].voice_ch.id == voice_chid:
+          return afk_owner
+
+      # No active AFKs - check for previous ones.
+      print(f'checking previous: {voice_chid} in {self.previous_afks.keys()}')
+      if voice_chid in self.previous_afks.keys():
+        if (datetime.now() - self.previous_afks[voice_chid][1]).total_seconds() <= get_afk_relevanttime(self.guild.id):
+          return self.previous_afks[voice_chid][0]
+    
+    return 0
+
   def get_move_channel_mentions(self, voice_ch_id):
     lounge = self.get_section_lounge()
     drag = self.get_section_drag(voice_ch_id)
@@ -165,13 +194,12 @@ class SectionAFKCheckManager:
           self._log('No info ch')
               
       self.active_afks.pop(owner_id)
+      self.previous_afks[afk.voice_ch.id] = (owner_id, datetime.now())
     except:
       pass
     self._log(f"Removed afk owned by {owner_id}.")
     
-  async def handle_voice_update(self, member: discord.Member):
-    self._log(f'User lounge/drag detected:')
-    
+  async def handle_lounge_join(self, member: discord.Member):    
     # For each AFK check, check to see if that AFK wants to move in this member.
     for afk_owner in self.active_afks:   
       afk = self.active_afks[afk_owner]
@@ -190,5 +218,5 @@ class SectionAFKCheckManager:
         
         await afk._move_in_user(member, force=True)       
     pass
-    
+
   pass

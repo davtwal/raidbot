@@ -2,8 +2,10 @@ import discord
 from discord.ext import commands
 
 from typing import List, Dict, Optional, Tuple
+import asyncio
+import re
 
-from globalvars import RaidingSection, get_event_roles, get_raid_roles, confirmation
+from globalvars import RaidingSection, get_staff_roles, get_event_roles, get_raid_roles, confirmation, get_section, get_susproof_channel, get_vetraider_role, get_deafcheck_warntime, get_deafcheck_sustime
 
 import dungeons
 from hc_afk_helpers import channel_checks, create_list, dungeon_checks, get_voice_ch, ask_location, log
@@ -32,6 +34,26 @@ def setup_managers(bot: commands.Bot, new_managers):
   
   print("Finshed setting up raid managers.")
   pass
+
+DEAFEN_WARNING_MESSAGE = """I've detected that you've deafened inside of one of {}'s raiding channels while not being allowed to.
+**You have {} seconds to undeafen, or you may be suspended.** Please undeafen immediately.
+"""
+
+DEAFEN_SUSPWARN_MESSAGE = """It's been {} seconds since you were warned to undeafen. The raid leader has been notified.
+If you are suspended and would like to contest the suspension, please message {}#{} or any security+."""
+
+DEAFEN_CAN_SUSP_WARNED = """They were messaged and warned, but still did not undeafen"""
+DEAFEN_CAN_SUSP_COULDNTWARN = """I tried to warn them through DMs, but I was unable to"""
+
+DEAFEN_CAN_SUSP_MESSAGE = """{}: {} was detected to be deafened in your run. {}.
+If able, you can suspend them for up to 6 hours using the below command:
+
+`;suspend {} 6 hours You were detected as deafened in one of my runs while not being allowed to. If you this is a mistake, please message me or a security.`
+
+If you think this is a mistake or a non-issue, you can ignore this message (or `;warn` them instead).
+If you do not have suspension permissions, you can ping anyone who does to have them take care of this."""
+
+DEAFEN_THANK_UNDEAFEN = """Thank you for undeafening. Enjoy the raid!"""
 
 class RaidingCmds(commands.Cog, name='Raiding Commands'):
   def __init__(self, bot: commands.Bot):
@@ -62,7 +84,7 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
     if d is None:
       await ctx.send("Error: d was None. Please contact an admin.")
       return
-    
+
     statuschannel = ctx.guild.get_channel(raid_section.status_ch)
     if statuschannel is None:
       await ctx.send("Error: statuschannel was None. Please contact an admin.")
@@ -71,7 +93,7 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
     if statuschannel.type is not discord.ChannelType.text:
       await ctx.send("Error: statuschannel's type was not text. Please contact an admin.")
       return
-    
+
     await managers[ctx.guild.id][raid_section.name].try_create_headcount(bot, ctx, statuschannel, d)
 
   ## Actual headcount commands
@@ -89,9 +111,7 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
     if dungeon is not None and dungeon.lower() == 'shatters':
       await ctx.send("No.")
       return
-    
-    
-    
+
     async def do_list_check():
       list_cont, n_d = await create_list(self.bot, ctx)
       if list_cont is False:
@@ -105,7 +125,6 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
       
     else:
       dungeon = dungeon.lower()
-    
       dcheck_res, d = dungeon_checks(dungeon)
       if dcheck_res == DCHECK_INVALID:
         await ctx.send(f'{dungeon} is not a valid dungeon.')
@@ -114,11 +133,9 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
       if dcheck_res == DCHECK_LIST:
         d = await do_list_check()
         if d is None: return
-    
+
     cont, section = await channel_checks(ctx)
-      
     if cont:
-      print(f"Continue with {dungeon}")
       if section.dungeon_allowed(dungeon):
         await self.headcount_main(ctx, d, section)
       else:
@@ -143,27 +160,95 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
   ######################
   ### AFK CHECKS
   ######################
-  
+
+  deafen_list: Dict[int, asyncio.Task] = {} # deafened user's id: task
+  async def check_deafen(self, member: discord.Member, afk_owner: discord.Member):
+    print(f'[DEAFCHECK]: Deafen detected by {member.display_name}; afk owner {afk_owner.display_name}')
+    warntime = get_deafcheck_warntime(member.guild.id)
+    susptime = get_deafcheck_sustime(member.guild.id)
+    susproof_ch = member.guild.get_channel(get_susproof_channel(member.guild.id))
+
+    if susproof_ch is None or susproof_ch.type != discord.ChannelType.text:
+      print(f'[DEAFCHECK]: No suspension proof channel found, or suspension proof channel is not a text channel.')
+      return
+
+    await asyncio.sleep(warntime)
+    warnedmsg = DEAFEN_CAN_SUSP_WARNED
+
+    print(f'[DEAFCHECK] {member.display_name}: Made it past warn time ({warntime}s). Warning...')
+    try:
+      await member.send(DEAFEN_WARNING_MESSAGE.format(member.guild.name, susptime))
+      print(f'[DEAFCHECK] {member.display_name}: Warned successfully. Waiting for suspension time...')
+      await asyncio.sleep(susptime)
+
+      print(f'[DEAFCHECK] {member.display_name}: Suspension time has passed. Sending suspension warning and suspension ping...')
+      try:
+        await member.send(DEAFEN_SUSPWARN_MESSAGE.format(susptime, afk_owner.name, afk_owner.discriminator))
+
+      except:
+        print(f'[DEAFCHECK] {member.display_name}: DM suspension warning failed.')
+
+    except asyncio.CancelledError:
+      print(f'[DEAFCHECK] {member.display_name}: Task cancelled. Thanking for undeafening and exiting.')
+      try:
+        await member.send(DEAFEN_THANK_UNDEAFEN)
+      except: pass
+      return
+
+    except:
+      print(f'[DEAFCHECK] {member.display_name}: Warning message failed. Sending suspension message...')
+      warnedmsg = DEAFEN_CAN_SUSP_COULDNTWARN
+
+    try:
+      await susproof_ch.send(DEAFEN_CAN_SUSP_MESSAGE.format(afk_owner.mention, member.mention, warnedmsg, re.search('[a-zA-Z]+', member.display_name)[0]))
+      print(f'[DEAFCHECK] {member.display_name}: Suspension proof message sent.')
+    except:
+      print(f'[DEAFCHECK] {member.display_name}: Failed to send message in suspension proof :(')
+
+    del self.deafen_list[member.id]
+
   # This listener checks to see if a user has joined a lounge or drag channel.
   # If they have, it tells the relevant section's manager.
   @commands.Cog.listener()
-  async def on_voice_state_update(self, member: discord.Member, before, after: discord.VoiceState):
+  async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
     if after.channel is None or after.channel.id is None:
       return
     
-    if before.channel == after.channel:
-      if before.self_deaf is False and after.self_deaf:
-        print(f"Deafen detected O_O: {member.display_name}")
-      elif before.self_deaf and after.self_deaf is False:
-        print(f"Undeafen detected :> {member.display_name}")
-    
-    else:
-      for g_id in managers:
-        for sect_name in managers[g_id]:
-          manager = managers[g_id][sect_name]
-          if after.channel.id == manager.section.lounge_ch or (manager.section.drag_chs and after.channel.id in manager.section.drag_chs):
-            await manager.handle_voice_update(member)
-   # if after.channel
+    for g_id in managers:
+      for sect_name in managers[g_id]:
+        manager = managers[g_id][sect_name]
+        sect = manager.section
+
+        if (before.channel and before.channel.id == after.channel.id or after.self_deaf) and after.channel.id in manager.section.voice_chs:
+          #print('|| Statechange detected in a raiding channel.')
+          if sect.deafcheck and (before.channel is None or before.self_deaf != after.self_deaf):
+            #print('|| Deafen or undeafen, and deafcheck.')
+
+            for role in get_staff_roles():
+              if role in [r.name for r in member.roles]:
+                return # We don't care about staff who are deafened (for now)
+
+            if sect.deafcheck_vet or get_vetraider_role(member.guild.id) not in [r.id for r in member.roles]:
+              #print('|| Either not veteran or veterans are also checked.')
+              if after.self_deaf:
+                #print('|| Is now deafened.')
+                owner_id = manager.has_relevant_afk(before.channel.id)
+                if owner_id:
+                  owner = manager.guild.get_member(owner_id)
+                  if owner:
+                    #print(f'|| Relevant AFK found with owner {owner.display_name}')
+                    self.deafen_list[member.id] = asyncio.create_task(self.check_deafen(member, owner))
+              else:
+                #print('|| Is now undeafened.')
+                if member.id in self.deafen_list:
+                  #print('|| Task found and cancelled.')
+                  self.deafen_list[member.id].cancel()
+                  del self.deafen_list[member.id]
+                else:
+                  pass #print('|| No task to cancel.')
+
+        elif after.channel.id == sect.lounge_ch or (sect.drag_chs and after.channel.id in sect.drag_chs):
+          await manager.handle_lounge_join(member)
     
     pass
   

@@ -2,6 +2,7 @@ import globalvars as g
 from globalvars import find_channel
 
 import discord
+from discord import Guild
 from discord.ext import commands
 from raiding import get_managers
 
@@ -44,7 +45,7 @@ class AdminCmds(commands.Cog):
 
     Args:
         mainarg ([str]): What to view. Can be: roles, staffroles, sections, section_<sectionname>
-    """     
+    """
     if mainarg == 'staffroles':
       await ctx.send(str(g.ROLES))
       
@@ -66,7 +67,7 @@ class AdminCmds(commands.Cog):
       mngrs = get_managers()
       await ctx.send(f'{[mngrs[ctx.guild.id][sect].active_afks for sect in mngrs[ctx.guild.id]]}')
     
-    elif len(mainarg) > 8 and mainarg[:8] == 'section_':
+    elif mainarg and len(mainarg) > 8 and mainarg[:8] == 'section_':
       await ctx.send(f'```{g.gdict[ctx.guild.id][g.GDICT_SECTIONS][mainarg[8:]]}```')
     
     
@@ -84,21 +85,33 @@ class AdminCmds(commands.Cog):
         mainarg (str): Which setup command to use.
         
     Setup Commands:
-        setup debug enabled|disabled
+        setup debug <enabled|disabled>
           Enables or disables debug mode.
     
-        setup role stream|raider|vet|nitro role_id
+        setup role <stream|raider|vet|nitro> role_id
           Sets whatever role to the role id given.
             Stream role is the ephemeral streaming role.
             Raider is the raider role.
             Vet is the veteran raider role.
             Nitro is the nitro role. :shrug:
             
-        setup role early add|remove|set role_ids...
+        setup role early <add|remove|set> role_ids...
           Sets, adds, or removes from the early roles.
           Early roles will automatically get moved into the voice channel and given location
           as soon as they click the Join button.
-          
+        
+        setup susproof <channel_id>
+          Sets the suspension proof channel.
+
+        setup deafcheck <warntime|susptime> <time>
+          Sets the warning or suspension time for a detected deafen. Time is in seconds.
+            After the warntime, the user will be messaged by the bot asking them to undeafen.
+            Then, after susptime has passed, the owner of the previous AFK will be messaged in suspension proof.
+
+        setup afkrelevancy <time>
+          Sets the time an AFK check is considered 'relevant' to <time>. Time is in seconds.
+          Note that only one AFK check can be considered 'relevant' for each voice channel at a time.
+
         setup section add|remove name
           Adds or removes a section.
           
@@ -117,6 +130,8 @@ class AdminCmds(commands.Cog):
             allow_unlock: [True|False] if RLs can use ^lock and ^unlock on these raiding channels.
             vc_min: [int] Minimum voice cap for the section.
             vc_max: [int] Maximum voice cap for the section.
+            deafcheck: [True|False] If deafen checking is enabled for this section.
+            deafcheck_vet: [True|False] If veteran raiders are also checked for deafening.
             
             whitelist: List[str] Adds/removes/sets dungeon whitelist for the section.
             blacklist: List[str] Adds/removes/sets dungeon blacklist.
@@ -215,6 +230,60 @@ class AdminCmds(commands.Cog):
       
       g.save_json(g.SHATTERS_JSON_TXT)
 
+    elif mainarg == 'susproof':
+      if len(args) < 1:
+        await ctx.send('Invalid amount of arguments.')
+        return
+
+      try:
+        ch: discord.TextChannel = ctx.guild.get_channel(int(args[0]))
+      except:
+        await ctx.send('Argument must be an integer.')
+        return
+
+      if not ch or ch.type != discord.ChannelType.text:
+        await ctx.send(f'Channel ID #{args[0]} not found, or is not a text channel.')
+        return
+
+      await ctx.send(f'Suspension proof channel set to {ch.mention}.')
+      g.gdict[gid][g.GDICT_SUSPROOF_CH] = ch.id
+      g.save_json(g.SHATTERS_JSON_TXT)
+
+    elif mainarg == 'deafcheck':
+      if len(args < 2):
+        await ctx.send('Invalid amount of arguments.')
+        return
+
+      try:
+        time = int(args[1])
+      except:
+        await ctx.send('Time must be an integer.')
+        return
+
+      if args[0] == 'warntime':
+        g.gdict[gid][g.GDICT_DEAFCHECK_WARNTIME] = time
+        await ctx.send(f'Deafen check warn time set to {time}.')
+
+      elif args[0] == 'susptime':
+        g.gdict[gid][g.GDICT_DEAFCHECK_SUSTIME] = time
+        await ctx.send(f'Deafen check suspension time set to {time}.')
+
+      g.save_json(g.SHATTERS_JSON_TXT)
+
+    elif mainarg == 'afkrelevancy':
+      try:
+        time = int(args[0])
+        if time < 60:
+          await ctx.send('AFK relevancy time must be > 60 seconds.')
+          return
+
+        g.gdict[gid][g.GDICT_AFK_RELEVANTTIME] = time
+        await ctx.send(f'AFK Relevancy time set to {time}.')
+        g.save_json(g.SHATTERS_JSON_TXT)
+      except:
+        await ctx.send("Invalid arguments given.")
+        return
+
     elif mainarg == 'section':
       if len(args) < 2:
         await ctx.send('invalid amount of arguments')
@@ -257,7 +326,7 @@ class AdminCmds(commands.Cog):
       pass
     
     else:
-      await ctx.send('Invalid operation. `debug, role, section`.')
+      await ctx.send('Invalid operation. Options are `debug, role, deafcheck, susproof, afkrelevancy, section`.')
     pass
   
   @commands.command('restart')

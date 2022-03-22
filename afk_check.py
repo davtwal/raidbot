@@ -701,7 +701,8 @@ class AFKCheckPanelEndButton(discord.ui.Button):
         if role in [r.name for r in interaction.user.roles]:
           await self.view.close_afk(interaction)
 
-      await interaction.response.send_message(content="You are not the owner of this AFK check.")
+      await interaction.response.send_message(content="You are not the owner of this AFK check.", ephemeral=True)
+      return
 
     await self.view.close_afk(interaction)
 
@@ -716,14 +717,17 @@ class AFKCheckPanelOpenButton(discord.ui.Button):
       manager = False
       for role in get_manager_roles():
         if role in [r.name for r in interaction.user.roles]:
+          manager = True
           break
 
       if not manager:
         await interaction.response.send_message(content="You are not the owner of this AFK check.", ephemeral=True)
+        return
     
     if self.click:
       if self.view.afk_check.status == AFKCheck.STATUS_OPENING:
         await interaction.response.send_message(content='Please wait for the AFK to open first.', ephemeral=True)
+        return
       else:
         await self.view.close_afk(interaction)
     
@@ -749,7 +753,8 @@ class AFKCheckPanelAbortButton(discord.ui.Button):
         if role in [r.name for r in interaction.user.roles]:
           await self.view.abort_afk(interaction)
 
-      await interaction.response.send_message(content="You are not the owner of this AFK check.")
+      await interaction.response.send_message(content="You are not the owner of this AFK check.", ephemeral=True)
+      return
     
     await self.view.abort_afk(interaction)
 
@@ -761,7 +766,8 @@ class AFKCheckPanelLocationButton(discord.ui.Button):
     assert self.view is not None
     
     if interaction.user.id != self.view.afk_check.owner().id:
-      await interaction.response.send_message(content="You are not the owner of this AFK check.")
+      await interaction.response.send_message(content="You are not the owner of this AFK check.", ephemeral=True)
+      return
       
     asyncio.create_task(self.view.update_loc())
 

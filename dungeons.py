@@ -121,6 +121,10 @@ class Dungeon:
   def set_code(self, code):
     self.code = code
 
+class AliensDungeon(Dungeon):
+  def get_key_names(self):
+    return ['Malogia(R)', 'Untaris(B)', 'Forax(G)', 'Katalund(Y)']
+
 HC_TEXT_VOID = """A {} headcount has been started by {}.
 React with {} if you plan to join.
 React with {} if you have a key.
@@ -276,11 +280,11 @@ dungeonlist: Dict[str, Dict[str, Dungeon]] = {
     'tomb': Dungeon('Tomb',               [924711683065278464], [924723993834053702], {R_STUN: [2, None], R_AETHER: [2, None]}, None, [R_TRICKSTER] + buffs + dps_debuff)
   },
   'Aliens': {
-    #'aliens': Dungeon('Aliens',     [924743856933707816], [924742807007166484, 924742806336061531, 924742806235394069, 924742806789029958], None, standard_buffs),
-    'malogia': Dungeon('Malogia',   [924743856736579625], [924742807007166484], None, standard_buffs),
-    'untaris': Dungeon('Untaris',   [924743857000841257], [924742806336061531], None, standard_buffs),
-    'forax': Dungeon('Forax',       [924743856891777114], [924742806235394069], None, standard_buffs),
-    'katalund': Dungeon('Katalund', [924743856866603019], [924742806789029958], None, standard_buffs)
+    'aliens': AliensDungeon('Aliens',     [924743856933707816], [924742807007166484, 924742806336061531, 924742806235394069, 924742806789029958], None, None, standard_buffs),
+    'malogia': Dungeon('Malogia',   [924743856736579625], [924742807007166484], None, None, standard_buffs),
+    'untaris': Dungeon('Untaris',   [924743857000841257], [924742806336061531], None, None, standard_buffs),
+    'forax': Dungeon('Forax',       [924743856891777114], [924742806235394069], None, None, standard_buffs),
+    'katalund': Dungeon('Katalund', [924743856866603019], [924742806789029958], None, None, standard_buffs)
   },
   'Exaltation': {
     FUNGAL_DNAME: Dungeon('Fungal Cavern',  [924714365251362856], [924723992949063730], None, [R_SLOW, R_MSEAL, R_FUNGAL, R_TRICKSTER, R_MYSTIC], standard_buffs),
@@ -301,7 +305,8 @@ dungeonlist: Dict[str, Dict[str, Dungeon]] = {
     'bftn': Dungeon('Battle f.t. Nexus',      [924745735696707625], [924746702383091762], None, None, standard_buffs),
     'bellas': Dungeon('Belladonna\'s Garden', [924745735969333258], [924746702202761256], None, None, standard_buffs),
     'icetomb': Dungeon('Ice Tomb',            [924745735797374976], [924746702534094848], None, [R_AETHER, R_STUN], buffs + dps_debuff + [R_TRICKSTER]),
-    'mgm': Dungeon('Mad God Mayhem',          [924745735747014666], [924746702253068348], None, None, standard_buffs)
+    'mgm': Dungeon('Mad God Mayhem',          [924745735747014666], [924746702253068348], None, None, standard_buffs),
+    'rainbowroad': Dungeon('Raindbow Road',   [953383643231969350], [953383593953067128], None, None, standard_buffs)
   }
 }
 

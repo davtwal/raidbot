@@ -51,14 +51,15 @@ class Headcount:
     self.status = self.STATUS_GATHERING
     self.status_embed = discord.Embed(description=self.dungeon.get_hc_text(self.bot, self.owner()), timestamp=datetime.now())
     self.status_embed.set_author(name=self.dungeon.get_hc_title(self.bot, self.owner()), icon_url=self.owner().avatar.url)
-    
+  
     time = datetime.now()
     self.panel_embed = discord.Embed(description=HC_PANEL_INFO_STR.format(REACT_CHECK, REACT_PLAY, REACT_WASTE), timestamp=time.replace(hour=(time.hour+1)%24))
     self.panel_embed.set_author(name='Control Panel', icon_url=self.owner().avatar.url)
     self.panel_embed.set_footer(text='This headcount will auto end at')
+
     for care in self.care_reacts:
       label = dungeons.get_react_name(care.id, self.dungeon)
-      self.panel_embed.add_field(inline=True, name=label, value='None')
+      self.panel_embed.add_field(inline=True, name=label, value='None')    
     
     here_ping = '`@here`' if is_debug() else '@here'
     self.status_msg = self.status_ch.send(content=HC_ANNOUNCE_STR.format(here_ping, self.dungeon.name, self.owner().mention), embed=self.status_embed)
@@ -67,6 +68,8 @@ class Headcount:
     
     self.panel_msg = await self.panel_msg
     self.status_msg = await self.status_msg
+    
+    
     self.react_task = asyncio.create_task(self._add_reactions())
     self.loop_task = asyncio.create_task(self._react_wait_loop())
     self.auto_end_task = asyncio.create_task(self._auto_end_loop())
@@ -220,7 +223,8 @@ class HeadcountPanelView(discord.ui.View):
   async def convert_plain(self, button: discord.ui.Button, interaction: discord.Interaction):
     if interaction.user.id != self.headcount.owner().id:
       await interaction.response.send_message(content="You are not the owner of this AFK check.", ephemeral=True)
-    
+      return
+
     await self.headcount.convert_to_afk(False)
     pass
   
@@ -228,6 +232,7 @@ class HeadcountPanelView(discord.ui.View):
   async def convert_lazy(self, button: discord.ui.Button, interaction: discord.Interaction):
     if interaction.user.id != self.headcount.owner().id:
       await interaction.response.send_message(content="You are not the owner of this AFK check.", ephemeral=True)
+      return
     
     await self.headcount.convert_to_afk(True)
     pass
@@ -236,6 +241,7 @@ class HeadcountPanelView(discord.ui.View):
   async def abandon(self, button: discord.ui.Button, interaction: discord.Interaction):
     if interaction.user.id != self.headcount.owner().id:
       await interaction.response.send_message(content="You are not the owner of this AFK check.", ephemeral=True)
+      return
     
     self.stop()
     await self.headcount.abandon()
