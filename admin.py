@@ -103,6 +103,9 @@ class AdminCmds(commands.Cog):
         setup susproof <channel_id>
           Sets the suspension proof channel.
 
+        setup runinfo <channel_id>
+          Sets the run info channel.
+
         setup deafcheck <warntime|susptime> <time>
           Sets the warning or suspension time for a detected deafen. Time is in seconds.
             After the warntime, the user will be messaged by the bot asking them to undeafen.
@@ -249,6 +252,25 @@ class AdminCmds(commands.Cog):
       g.gdict[gid][g.GDICT_SUSPROOF_CH] = ch.id
       g.save_json(g.SHATTERS_JSON_TXT)
 
+    elif mainarg == 'runinfo':
+      if len(args) < 1:
+        await ctx.send('Invalid amount of arguments.')
+        return
+
+      try:
+        ch: discord.TextChannel = ctx.guild.get_channel(int(args[0]))
+      except:
+        await ctx.send('Argument must be an integer.')
+        return
+
+      if not ch or ch.type != discord.ChannelType.text:
+        await ctx.send(f'Channel ID #{args[0]} not found, or is not a text channel.')
+        return
+
+      await ctx.send(f'Run info channel set to {ch.mention}.')
+      g.gdict[gid][g.GDICT_RUNINFO_CH] = ch.id
+      g.save_json(g.SHATTERS_JSON_TXT)
+
     elif mainarg == 'deafcheck':
       if len(args < 2):
         await ctx.send('Invalid amount of arguments.')
@@ -300,9 +322,7 @@ class AdminCmds(commands.Cog):
       
       elif args[0] in g.gdict[gid][g.GDICT_SECTIONS]:
         if len(args) > 3:
-          print(f'{args}')
           abc = [None for a in args if a == 'None']
-          print(f'{abc}')
           if args[1] in ['voice_chs', 'drag_chs']:
             g.gdict[gid][g.GDICT_SECTIONS][args[0]][args[1]] = [int(a) for a in args[2:]]
           else:
@@ -326,13 +346,14 @@ class AdminCmds(commands.Cog):
       pass
     
     else:
-      await ctx.send('Invalid operation. Options are `debug, role, deafcheck, susproof, afkrelevancy, section`.')
+      await ctx.send('Invalid operation. Options are `debug, role, deafcheck, susproof, runinfo, afkrelevancy, section`.')
     pass
   
   @commands.command('restart')
   @commands.has_any_role(*g.get_admin_roles())
-  async def do_exit(self, ctx):
+  async def do_exit(self, ctx: commands.Context):
     """[Admin+] Restarts the bot."""
+    self.bot.log('Restart command executed.')
     close_connections()
     g.save_json(g.SHATTERS_JSON_TXT)
     exit(-1)

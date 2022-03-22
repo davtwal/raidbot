@@ -45,15 +45,15 @@ def setup_dbs(bot: commands.Bot):
         database = "shatters"
       )
 
-      print(f'[SETUPDB]: {guild.name} SHATTERS: {db_connections[guild.id]}')
+      bot.log(f'[SETUPDB]: {guild.name} SHATTERS: {db_connections[guild.id]}')
       pass
     else:
-      print(f'[SETUPDB]: {guild.name} setup as {guild.name.lower()}.db')
+      bot.log(f'[SETUPDB]: {guild.name} setup as {guild.name.lower()}.db')
       db_connections[guild.id] = sqlite3.connect(f'{guild.name.lower()}.db')
       for e in DB_SETUP_EXECUTES:
-        print(f'[SETUPDB]: -- Executing {e}')
+        #print(f'[SETUPDB]: -- Executing {e}')
         db_connections[guild.id].execute(e)
-      print('[SETUPDB]: -- Committing')
+      bot.log('[SETUPDB]: -- Committing')
       db_connections[guild.id].commit()
   pass
 

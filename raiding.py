@@ -8,7 +8,7 @@ import re
 from globalvars import RaidingSection, get_staff_roles, get_event_roles, get_raid_roles, confirmation, get_section, get_susproof_channel, get_vetraider_role, get_deafcheck_warntime, get_deafcheck_sustime
 
 import dungeons
-from hc_afk_helpers import channel_checks, create_list, dungeon_checks, get_voice_ch, ask_location, log
+from hc_afk_helpers import channel_checks, create_list, dungeon_checks, get_voice_ch, ask_location
 from hc_afk_helpers import DCHECK_LIST, DCHECK_INVALID
 import section_manager as sm
 
@@ -30,7 +30,7 @@ def setup_managers(bot: commands.Bot, new_managers):
     print(f'Guild {guild.name} (ID {gid}):')    
     for section_name in new_managers[gid]:
       print(f'- Section "{section_name}"')
-      managers[gid][section_name] = sm.SectionAFKCheckManager(guild, section_name)
+      managers[gid][section_name] = sm.SectionAFKCheckManager(bot, guild, section_name)
   
   print("Finshed setting up raid managers.")
   pass
@@ -46,9 +46,9 @@ DEAFEN_CAN_SUSP_WARNED = """They were messaged and warned, but still did not und
 DEAFEN_CAN_SUSP_COULDNTWARN = """I tried to warn them through DMs, but I was unable to"""
 
 DEAFEN_CAN_SUSP_MESSAGE = """{}: {} was detected to be deafened in your run. {}.
-If able, you can suspend them for up to 6 hours using the below command:
+If able, you (or any other RL/Security) can suspend them for up to 6 hours using the below command:
 
-`;suspend {} 6 hours You were detected as deafened in one of my runs while not being allowed to. If you this is a mistake, please message me or a security.`
+`;suspend {} 6 hours You were detected as deafened in one of my runs while not being allowed to. If you think this is a mistake, please message me or a security.`
 
 If you think this is a mistake or a non-issue, you can ignore this message (or `;warn` them instead).
 If you do not have suspension permissions, you can ping anyone who does to have them take care of this."""
@@ -427,32 +427,32 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
       dungeon = dungeons.get(dungeons.SHATTERS_DNAME)
       assert dungeon
       
-      log(f"AFK command {ctx.author.display_name}: ^afk {' '.join(args)}")
+      self.bot.log(f"AFK command {ctx.author.display_name}: ^afk {' '.join(args)}")
       lazy = False
       loc = None
       cap = None
       if len(args) > 0:
         args_parsed = 0
         if args[0].lower() == 'z' or args[0].lower() == 'l' or args[0].lower == 'lazy':
-          log(f'- ({args_parsed}) Parsed Z/L/Lazy')
+          self.bot.log(f'- ({args_parsed}) Parsed Z/L/Lazy')
           lazy = True
           args_parsed += 1
         elif args[0].lower() == 's':
-          log(f'- ({args_parsed}) Parsed S')
+          self.bot.log(f'- ({args_parsed}) Parsed S')
           args_parsed += 1
           
         if args_parsed < len(args):
-          log(f'- ({args_parsed}) Additional parameters detected')
+          self.bot.log(f'- ({args_parsed}) Additional parameters detected')
           try:
             cap = int(args[args_parsed])        
-            log(f'- Cap found: {cap}')
+            self.bot.log(f'- Cap found: {cap}')
             args_parsed += 1          
           except ValueError:
-            log(f'- ({args_parsed}) No cap found')
+            self.bot.log(f'- ({args_parsed}) No cap found')
             pass
         
           if args_parsed < len(args):
-            log(f'- ({args_parsed}) Additional args taken as location: {args[args_parsed:]}')
+            self.bot.log(f'- ({args_parsed}) Additional args taken as location: {args[args_parsed:]}')
             loc = ' '.join(args[args_parsed:])
 
       await self.afk_main(ctx, dungeon, section, lazy, cap, loc)

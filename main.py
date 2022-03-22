@@ -1,4 +1,9 @@
 from typing import Dict, List
+from datetime import datetime
+import pytz
+
+import sys
+import traceback
 
 import discord
 from discord.ext import commands
@@ -16,17 +21,37 @@ from tracking import TrackingCog, setup_dbs
 import random
 import re
 
-intents = discord.Intents.default()
-intents.members = True
-intents.messages = True
+DEBUG_LOG_CHANNEL = 955912379902861332
 
 class ShattersBot(commands.Bot):
   def __init__(self):
+    intents = discord.Intents.default()
+    intents.members = True
+    intents.messages = True
+
     super().__init__(command_prefix="^", intents=intents)
-    
+  
+  async def _log(self, logstr):
+    try:
+      await self.debugch.send(f'`{logstr}`')
+    except:
+      print('could not send')
+      pass
+
+  def log(self, debugstr):
+    logstr = f"({datetime.now(tz=pytz.timezone('US/Pacific')).replace(microsecond=0).time()}) {debugstr}"
+    asyncio.create_task(self._log(logstr))
+    print(logstr)
+
   async def on_ready(self):
-    print(f'Bot logged in: {self.user} (ID {self.user.id})')
-    print('-----------------------------------------------')
+    try:
+      self.debugch = await self.fetch_channel(DEBUG_LOG_CHANNEL)
+    except:
+      print(f"!!!! COULD NOT FETCH DEBUG CHANNEL: {DEBUG_LOG_CHANNEL}!!!!!")
+
+    self.log('--------------------BOOT UP--------------------')
+    self.log(f'Bot logged in: {self.user} (ID {self.user.id})')
+    self.log('-----------------------------------------------')
     #super().activity = discord.Game(name='shamters')
     
     manager_setups: Dict[int, List[str]] = {}
@@ -41,6 +66,14 @@ class ShattersBot(commands.Bot):
     setup_dbs(self)
 
 bot = ShattersBot()
+
+def excepthook(*exc_info):
+  try:
+    bot.log(traceback.format_exception(*exc_info))
+  except:
+    pass
+
+sys.excepthook = excepthook
 
 sustext = """
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀

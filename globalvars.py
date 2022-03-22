@@ -11,6 +11,7 @@ from discord.ext.commands.bot import when_mentioned
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 REACT_X = '❌'
 REACT_CHECK = '✅'
+REACT_HOOK = '↪'
 REACT_PLAY = '▶'
 HC_PANEL_REACTS = ['▶', '🕓', '🗑']
 
@@ -90,6 +91,7 @@ GDICT_VETRAIDER_ROLE = 'vetrole'
 GDICT_NITRO_ROLE = 'nitro'
 GDICT_EARLY_ROLES = 'earlies'
 GDICT_SUSPROOF_CH = 'susproof'
+GDICT_RUNINFO_CH = 'runinfo'
 GDICT_DEAFCHECK_WARNTIME = 'deafch_warn'      # Amount of time after deafening where a raider gets warned (s).
 GDICT_DEAFCHECK_SUSTIME = 'deafch_susp'       # Amount of time after being warned where the RL is notified (s).
 GDICT_AFK_RELEVANTTIME = 'afk_relevant_time'  # Amount of time an AFK check is considered 'relevant' for a voice channel.
@@ -109,6 +111,7 @@ DEFAULT_GUILD_DICT = {
   GDICT_NITRO_ROLE: '',
   GDICT_EARLY_ROLES: [],
   GDICT_SUSPROOF_CH: 0,
+  GDICT_RUNINFO_CH: 0,
   GDICT_DEAFCHECK_WARNTIME: 2,
   GDICT_DEAFCHECK_SUSTIME: 90,
   GDICT_AFK_RELEVANTTIME: 30 * 60, # 30 minutes
@@ -148,6 +151,9 @@ def get_deafcheck_sustime(guild_id) -> int:
 
 def get_afk_relevanttime(guild_id) -> int:
   return gdict[guild_id][GDICT_AFK_RELEVANTTIME]
+
+def get_runinfo_channel(guild_id) -> int:
+  return gdict[guild_id][GDICT_RUNINFO_CH]
 
 #def get_role_whitelist(guild_id) -> Dict[str, List[int]]:
 #  return gdict[guild_id][GDICT_DUNGEON_ROLE_WHITELIST]

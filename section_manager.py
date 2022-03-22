@@ -9,13 +9,12 @@ import dungeons
 from globalvars import get_section, get_vetraider_role, get_raider_role, get_afk_relevanttime
 import afk_check as ac
 from headcount import Headcount
-from hc_afk_helpers import log
 
 class SectionAFKCheckManager:
-  def __init__(self, guild: discord.Guild, sectionname):
+  def __init__(self, bot: commands.Bot, guild: discord.Guild, sectionname):
     self.guild = guild
     self.section = get_section(guild.id, sectionname)
-
+    self.bot = bot
     # Keeps track of actively running AFK checks.
     # Key: Owner's ID. Value: AFK check.
     self.active_afks: Dict[int, ac.AFKCheck] = {}
@@ -32,7 +31,7 @@ class SectionAFKCheckManager:
     pass
   
   def _log(self, logstr):
-    log(f'[{self.guild.name}][{self.section.name}] {logstr}')
+    self.bot.log(f'[{self.guild.name}][{self.section.name}] {logstr}')
   
   async def try_create_afk( self, bot: commands.Bot,
                             ctx: commands.Context,
@@ -42,7 +41,7 @@ class SectionAFKCheckManager:
                             lazy: bool,
                             location: str) -> bool:
 
-    log(f'Attempting to create {"lazy" if lazy else ""} AFK check')
+    self._log(f'Attempting to create {"lazy" if lazy else ""} AFK check')
     if ctx.author.id in self.active_afks:
       self._log(f'{ctx.author.display_name} attempted to create AFK while already having one.')
       await ctx.send("You already have an AFK check running!")
@@ -183,11 +182,15 @@ class SectionAFKCheckManager:
             
             key_list = [u.mention for u in afk._keys()]
             early_list = [u.mention for u in afk.has_early_loc]
-            raid_list = [f"{u.mention}`{u.display_name}`" for u in afk.joined_raiders]
+            join_list = [f"{u.mention}`{u.display_name}`" for u in afk.joined_raiders]
+            raid_list = [f"{u.mention}`{u.display_name}`" for u in afk.voice_ch.members]
             info_embed.add_field(inline=False, name='Keys', value=f'{key_list if len(key_list) > 0 else "None"}')
             info_embed.add_field(inline=False, name='Early', value=f'{early_list if len(early_list) > 0 else "None"}')
-            info_embed.add_field(inline=False, name='Joined', value=f'{raid_list if len(raid_list) > 0 else "None"}')
-            await info_ch.send(embed=info_embed)
+            info_embed.add_field(inline=False, name='Joined', value=f'{join_list if len(join_list) > 0 else "None"}')
+            info_embed.add_field(inline=False, name='Raiders', value=f'{raid_list if len(raid_list) > 0 else "None"}')
+            
+            await info_ch.send(f'AFK Check: https://discord.com/channels/{self.guild.id}/{afk.ctx.channel.id}/{afk.panel_msg.id}',embed=info_embed)
+            self._log(f'Run logged.')
           else:
             self._log(f'Info is not text: {info_ch.type}')
         else:

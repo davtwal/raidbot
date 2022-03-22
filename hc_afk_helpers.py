@@ -39,9 +39,9 @@ class ConfirmView(discord.ui.View):
     self.value = False
     self.stop()
 
-from datetime import datetime
-def log(logstr):
-  print(f'({datetime.now().replace(microsecond=0).time()}){logstr}')
+#from datetime import datetime
+#def log(logstr):
+#  print(f'({datetime.now().replace(microsecond=0).time()}){logstr}')
 
 DCHECK_OK = 0
 DCHECK_LIST = -1

@@ -9,7 +9,7 @@ from discord import PermissionOverwrite, PartialEmoji
 from discord.ext import commands
 
 import dungeons
-from globalvars import REACT_X, REACT_CHECK, REACT_PLAY
+from globalvars import REACT_X, REACT_CHECK, REACT_PLAY, REACT_HOOK
 from globalvars import is_debug, get_staff_roles, get_nitro_role, get_early_roles, get_manager_roles
 #from section_manager import SectionAFKCheckManager
 from hc_afk_helpers import ConfirmView, get_field_index, ask_location
@@ -34,6 +34,7 @@ class AFKCheck:
   AFK_PANEL_INFO = "Raiders that have clicked one of the buttons and confirmed (if necessary) will show up below.\n"
   AFK_PANEL_INFO_OPEN = f"{REACT_PLAY} Press the `Open Channel` button to open the channel to all raiders.\n"
   AFK_PANEL_INFO_END = f"{REACT_CHECK} " + "Press the `End AFK` button{} to end the AFK check, moving players that haven't clicked the Join button out of the voice chat.\n"
+  AFK_PANEL_INFO_CLOSE = f'{REACT_HOOK} Press the `Close AFK` button to close the AFK check without a post-AFK. This will not move any players out of the voice channel.'
   AFK_PANEL_INFO_ABORT = f"{REACT_X} Press the `Abort AFK` button to abort the AFK check, keeping players in the channel."
   
   # 1: join button emoji; 2: drag channel mentions
@@ -153,9 +154,11 @@ class AFKCheck:
   def _build_afk_panel_desc(self, lazy):
     ret = self.AFK_PANEL_INFO
     if lazy:
-      ret += self.AFK_PANEL_INFO_OPEN + self.AFK_PANEL_INFO_END.format(" after opening")
+      ret += self.AFK_PANEL_INFO_OPEN 
+      ret += self.AFK_PANEL_INFO_END.format(" after opening")
     else:
       ret += self.AFK_PANEL_INFO_END.format("")
+      ret += self.AFK_PANEL_INFO_CLOSE
     ret += self.AFK_PANEL_INFO_ABORT
     return ret
   
@@ -236,7 +239,10 @@ class AFKCheck:
     if lazy:
       asyncio.create_task(self.open_channel())
     else:
-      asyncio.create_task(self.close())
+      if self.manager.section.is_vet:
+        asyncio.create_task(self.close())
+      else:
+        asyncio.create_task(self.end())
     pass
   
   async def _open_voice(self):
@@ -328,9 +334,11 @@ class AFKCheck:
     pass
 
   AFK_ENDED_TEXT = f"This AFK check has been ended. Please wait for the next one to start."
+  AFK_ABORTED_TEXT = f"We apologize for the inconvenience. Please wait for the next raid to start."
   AFK_ENDED_KEY_THANK_TEXT = "\nThank you to {} for popping a key for us."
   AFK_ENDED_KEY_THANKS_TEXT = "\nThank you to {} for popping keys for us."
   AFK_TITLE_STARTED_TEXT = "{} by {} already started."
+  AFK_TITLE_ABORTED_TEXT = "{} by {} was aborted."
   
   async def update_location(self, newloc):
     self.location = newloc
@@ -372,8 +380,7 @@ class AFKCheck:
     
     # Set the author name to the started title.
     self.afk_embed._author['name'] = self.AFK_TITLE_STARTED_TEXT.format(self.dungeon.name, self.owner().display_name)
-    
-    
+
     # update messages
     self.panel_embed.description = 'This AFK check has ended.'
     await self.afk_msg.edit(content='This AFK has ended.', embed=self.afk_embed, view=None)
@@ -382,10 +389,11 @@ class AFKCheck:
     await self.manager.remove_afk(self.owner().id, report=self.dungeon.code == dungeons.SHATTERS_DNAME)
 
     # Add runs to those who are currently in the voice chat.
+    self._log("Adding runs done")
     add_runs_done(self.manager.guild.id, self.dungeon.code, self.voice_ch.members, self.owner())
 
-  async def close(self):
-    self._log("Close channel")
+  async def end(self):
+    self._log("End AFK check, close channel")
     self.status = self.STATUS_POST
     await self._close_voice()
     self.timer.cancel()
@@ -430,14 +438,35 @@ class AFKCheck:
     await self._end_afk()
     pass
   
-  async def abort(self):
-    self._log("Abort afk")
+  async def close(self):
+    self._log("Close afk")
     self.afk_embed.set_field_at(0, name='Reacts', value=self._build_afk_list_react_text())
     self.timer.cancel()
     await self._close_voice()
     await self._end_afk()
     pass
   
+  async def abort(self):
+    self.status = self.STATUS_ENDED
+    self._log("Aborted")
+    self.timer.cancel()
+    await self._close_voice()
+
+    self.afk_embed.description = self.AFK_ABORTED_TEXT
+    self.afk_embed.set_footer(text='Aborted at')
+    self.afk_embed.timestamp = datetime.now()
+
+    # Set the author name to the started title.
+    self.afk_embed._author['name'] = self.AFK_TITLE_ABORTED_TEXT.format(self.dungeon.name, self.owner().display_name)
+    self.afk_embed.remove_field(0)
+
+    # update messages
+    self.panel_embed.description = 'This AFK check was aborted.'
+    await self.afk_msg.edit(content='This AFK was aborted.', embed=self.afk_embed, view=None)
+    await self.panel_msg.edit(embed=self.panel_embed)
+    
+    await self.manager.remove_afk(self.owner().id)
+
   #########################################
   ### Button Press Helpers
   #########################################
@@ -680,7 +709,7 @@ class AFKCheck:
           self.has_early_loc.append(user)
 
         if user.id not in self.drag_raiders:
-          self.drag_raiders.append(user.id)
+          #self.drag_raiders.append(user.id)
           return self.ACK_NITRO_SUCCESS
         
         return self.ACK_NITRO_REPEAT
@@ -699,11 +728,31 @@ class AFKCheckPanelEndButton(discord.ui.Button):
     if interaction.user.id != self.view.afk_check.owner().id:
       for role in get_manager_roles():
         if role in [r.name for r in interaction.user.roles]:
-          await self.view.close_afk(interaction)
+          await self.view.end_afk(interaction)
 
       await interaction.response.send_message(content="You are not the owner of this AFK check.", ephemeral=True)
       return
 
+    await self.view.end_afk(interaction)
+
+class AFKCheckPanelCloseButton(discord.ui.Button):
+  def __init__(self, disabled=False):
+    super().__init__(style=discord.ButtonStyle.blurple, label='Close Channel', emoji=REACT_HOOK)
+    self.disabled = disabled
+
+  async def callback(self, interaction: discord.Interaction):
+    assert self.view is not None
+    if interaction.user.id != self.view.afk_check.owner().id:
+      manager = False
+      for role in get_manager_roles():
+        if role in [r.name for r in interaction.user.roles]:
+          manager = True
+          break
+
+      if not manager:
+        await interaction.response.send_message(content="You are not the owner of this AFK check.", ephemeral=True)
+        return
+    
     await self.view.close_afk(interaction)
 
 class AFKCheckPanelOpenButton(discord.ui.Button):  
@@ -729,14 +778,13 @@ class AFKCheckPanelOpenButton(discord.ui.Button):
         await interaction.response.send_message(content='Please wait for the AFK to open first.', ephemeral=True)
         return
       else:
-        await self.view.close_afk(interaction)
+        await self.view.end_afk(interaction)
     
     else:
       self.label = AFKCheckPanelEndButton.LABEL
       self.style = AFKCheckPanelEndButton.STYLE
       self.emoji = AFKCheckPanelEndButton.EMOJI
       self.click = True
-      await interaction.response.edit_message(view=self.view)
       await self.view.open_channel(interaction)
   
   pass
@@ -781,10 +829,14 @@ class AFKCheckPanelView(discord.ui.View):
     else:
       self.add_item(AFKCheckPanelEndButton())
     
+    self.add_item(AFKCheckPanelCloseButton(disabled=lazy))
     self.add_item(AFKCheckPanelLocationButton())
     self.add_item(AFKCheckPanelAbortButton())
   
   async def open_channel(self, interaction: discord.Interaction):
+    # Enable close button
+    self.children[1].disabled = False
+    await interaction.response.edit_message(view=self)
     await self.afk_check.open_channel()
     pass
   
@@ -792,6 +844,11 @@ class AFKCheckPanelView(discord.ui.View):
     self.stop()
     await interaction.response.edit_message(view=None)   
     await self.afk_check.close()
+
+  async def end_afk(self, interaction: discord.Interaction):
+    self.stop()
+    await interaction.response.edit_message(view=None)   
+    await self.afk_check.end()
   
   async def abort_afk(self, interaction: discord.Interaction):
     self.stop()
