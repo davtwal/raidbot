@@ -94,9 +94,13 @@ class SectionAFKCheckManager:
     
     self.active_hcs[ctx.author.id] = Headcount(self, bot, ctx, status_ch, dungeon)
     
-    await self.active_hcs[ctx.author.id].start()
-    return True
-    
+    try:
+      await self.active_hcs[ctx.author.id].start()
+      return True
+    except Exception as ex:
+      await ctx.send(f"An error occurred while starting up the headcount: ({type(ex).__name__}) {ex.args}")
+      del self.active_hcs[ctx.author.id]
+      return False
     pass
   
   async def try_convert_hc_to_afk(self, hc: Headcount, voice_ch: discord.VoiceChannel, lazy:bool, location: str) -> bool:
@@ -169,37 +173,40 @@ class SectionAFKCheckManager:
     self._log(f'Removed hc owned by {owner_id}.')
   
   async def remove_afk(self, owner_id: int, report: bool = False):
-    try:
-      if report:
-        afk = self.active_afks[owner_id]
-        info_ch: discord.TextChannel = self.guild.get_channel(self.section.run_info_ch)
-        self._log(f'REPORT: {self.guild.name}, {self.section.name}, {self.section.run_info_ch}')
-        if info_ch:
-          if isinstance(info_ch, discord.TextChannel):
-            info_embed = discord.Embed()
-            info_embed.set_author(name=f'Run by {afk.owner().display_name}', icon_url = afk.owner().avatar.url)
-            info_embed.set_footer(text=f'Run started at {afk.afk_embed.timestamp}')
-            
-            key_list = [u.mention for u in afk._keys()]
-            early_list = [u.mention for u in afk.has_early_loc]
-            join_list = [f"{u.mention}`{u.display_name}`" for u in afk.joined_raiders]
-            raid_list = [f"{u.mention}`{u.display_name}`" for u in afk.voice_ch.members]
-            info_embed.add_field(inline=False, name='Keys', value=f'{key_list if len(key_list) > 0 else "None"}')
-            info_embed.add_field(inline=False, name='Early', value=f'{early_list if len(early_list) > 0 else "None"}')
-            info_embed.add_field(inline=False, name='Joined', value=f'{join_list if len(join_list) > 0 else "None"}')
-            info_embed.add_field(inline=False, name='Raiders', value=f'{raid_list if len(raid_list) > 0 else "None"}')
-            
+    if report:
+      afk = self.active_afks[owner_id]
+      info_ch: discord.TextChannel = self.guild.get_channel(self.section.run_info_ch)
+      self._log(f'REPORT: {self.guild.name}, {self.section.name}, {self.section.run_info_ch}')
+
+      if info_ch:
+        if isinstance(info_ch, discord.TextChannel):
+          info_embed = discord.Embed()
+          info_embed.set_author(name=f'Run by {afk.owner().display_name}', icon_url = afk.owner().avatar.url)
+          info_embed.set_footer(text=f'Run started at {afk.afk_embed.timestamp}')
+          
+          key_list = [u.mention for u in afk._keys()]
+          early_list = [u.mention for u in afk.has_early_loc]
+          join_list = [f"{u.mention}`{u.display_name}`" for u in afk.joined_raiders]
+          raid_list = [f"{u.mention}`{u.display_name}`" for u in afk.voice_ch.members]
+          info_embed.add_field(inline=False, name='Keys', value=f'{key_list if len(key_list) > 0 else "None"}')
+          info_embed.add_field(inline=False, name='Early', value=f'{early_list if len(early_list) > 0 else "None"}')
+          info_embed.add_field(inline=False, name='Joined', value=f'{join_list if len(join_list) > 0 else "None"}')
+          info_embed.add_field(inline=False, name='Raiders', value=f'{raid_list if len(raid_list) > 0 else "None"}')
+          
+          try:
             await info_ch.send(f'AFK Check: https://discord.com/channels/{self.guild.id}/{afk.ctx.channel.id}/{afk.panel_msg.id}',embed=info_embed)
             self._log(f'Run logged.')
-          else:
-            self._log(f'Info is not text: {info_ch.type}')
+          except:
+            self._log(f'Unable to log run.')
+
         else:
-          self._log('No info ch')
-              
-      self.active_afks.pop(owner_id)
-      self.previous_afks[afk.voice_ch.id] = (owner_id, datetime.now())
-    except:
-      pass
+          self._log(f'Info is not text: {info_ch.type}')
+          
+      else:
+        self._log('No info ch')
+            
+    self.active_afks.pop(owner_id)
+    self.previous_afks[afk.voice_ch.id] = (owner_id, datetime.now())
     self._log(f"Removed afk owned by {owner_id}.")
     
   async def handle_lounge_join(self, member: discord.Member):    

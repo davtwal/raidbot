@@ -1,6 +1,6 @@
 import asyncio
 from code import interact
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Union
 from datetime import datetime
 import time
 
@@ -110,7 +110,7 @@ class AFKCheck:
       l.extend(self.button_reacts[r.id])
     return l
 
-  def owner(self):
+  def owner(self) -> Union[discord.User, discord.Member]:
     try:
       return self.actual_owner
     except AttributeError:
@@ -186,12 +186,12 @@ class AFKCheck:
     
     # Create embeds    
     self.afk_embed = discord.Embed(description=self._build_afk_desc(lazy), timestamp=datetime.now())
-    self.afk_embed.set_author(name=f'{self.dungeon.name} raid by {self.owner().display_name}', icon_url=self.owner().avatar.url)
+    self.afk_embed.set_author(name=f'{self.dungeon.name} raid by {self.owner().display_name}', icon_url=self.owner().display_avatar.url)
     self.afk_embed.add_field(name='Reacts', value=self._build_afk_react_text())
     self.afk_embed.set_footer(text=footer_text)
     
     self.panel_embed = discord.Embed(description=self._build_afk_panel_desc(lazy))
-    self.panel_embed.set_author(name='Control Panel', icon_url=self.owner().avatar.url)
+    self.panel_embed.set_author(name='Control Panel', icon_url=self.owner().display_avatar.url)
     self.panel_embed.add_field(inline=False, name='Location', value=f'*{self.location}*')
 
     for react in self.reacts_key + self.reacts_early + self.reacts_prim:
@@ -309,7 +309,7 @@ class AFKCheck:
     self.status = self.STATUS_OPENING
     
     opening_embed = discord.Embed(description='Click Join now to get moved in!')
-    opening_embed.set_author(name='Channel Opening in', icon_url=self.owner().avatar.url)
+    opening_embed.set_author(name='Channel Opening in', icon_url=self.owner().display_avatar.url)
     opening_msg = await self.status_ch.send(content='Channel opening!', embed=opening_embed)
     
     for i in range(CHANNEL_OPENING_WARNING_TIME):

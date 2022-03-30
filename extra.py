@@ -251,16 +251,61 @@ class ExtraCmds(commands.Cog, name='Extra Commands'):
   @commands.command(name='countrole')
   @commands.has_any_role(*get_veteran_roles())
   async def countrole(self, ctx: commands.Context, *id_or_nameparts):
-    if len(id_or_nameparts == 0):
-      ctx.send('You must give an role ID or name.')
+    """[Vet RL+] Counts the number of people who have a role. Arguments can either be a single role ID (integer), or a role name.
+    Some roles have aliases:
+      Vet -> Veteran Raider
+      Sec -> Security
+      ERL -> Event Raid Leader
+      TRL -> Trial Raid Leader
+      ARL -> Almost Raid Leader
+      RL -> Raid Leader
+      VRL -> Veteran Raid Leader
+      VERL -> Veteran Event Raid Leader
+      HRL -> Head Raid Leader
+    """
+
+    g: discord.Guild = ctx.guild
+    if len(id_or_nameparts) < 1:
+      await ctx.send('You must give an role ID or name.')
       return
+
+    found_role = None
 
     try:
       id = int(id_or_nameparts[0])
-      role = ctx.guild.role
+      found_role = g.get_role(id)
+      if found_role is None:
+        await ctx.send(f"Role with ID `{id}` not found.")
+        return
+        
     except:
-      if len(id_or_nameparts > 1):
-        name = ' '.join(id_or_nameparts)
-      else:
-        name = id_or_nameparts[0]
+      name = ' '.join(id_or_nameparts)
+      
+      aliases = {
+        'sec': 'Security',
+        'erl': 'Event Raid Leader',
+        'trl': 'Trial Raid Leader',
+        'arl': 'Almost Raid Leader',
+        'rl': 'Raid Leader',
+        'vrl': 'Veteran Raid Leader',
+        'verl': 'Veteran Event Raid Leader',
+        'hrl': 'Head Raid Leader',
+        'vet': 'Veteran Raider'
+      }
+
+      if name.lower() in aliases:
+        name = aliases[name]
+
+      role_list = await g.fetch_roles()
+      for role in role_list:
+        if role.name.lower() == name.lower():
+          found_role = role
+          break
+
+      if found_role is None:
+        await ctx.send(f"Role with name `{name}` not found.")
+        return
+
+    await ctx.send(embed=discord.Embed(description=f"__**{len(found_role.members)}**__ members have the role {found_role.mention}."))
+    
     pass

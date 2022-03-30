@@ -1,5 +1,6 @@
 import asyncio
 from datetime import datetime
+from typing import Union
 
 import discord
 from discord.ext import commands
@@ -41,7 +42,7 @@ class Headcount:
     self.care_reacts = dungeon.get_key_react_emojis(bot) + dungeon.get_early_react_emojis(bot) + dungeon.get_primary_react_emojis(bot)
     pass
   
-  def owner(self):
+  def owner(self) -> Union[discord.User, discord.Member]:
     try:
       return self.actual_owner
     except AttributeError:
@@ -50,11 +51,11 @@ class Headcount:
   async def start(self):
     self.status = self.STATUS_GATHERING
     self.status_embed = discord.Embed(description=self.dungeon.get_hc_text(self.bot, self.owner()), timestamp=datetime.now())
-    self.status_embed.set_author(name=self.dungeon.get_hc_title(self.bot, self.owner()), icon_url=self.owner().avatar.url)
-  
+    self.status_embed.set_author(name=self.dungeon.get_hc_title(self.bot, self.owner()), icon_url=self.owner().display_avatar.url)
+    
     time = datetime.now()
     self.panel_embed = discord.Embed(description=HC_PANEL_INFO_STR.format(REACT_CHECK, REACT_PLAY, REACT_WASTE), timestamp=time.replace(hour=(time.hour+1)%24))
-    self.panel_embed.set_author(name='Control Panel', icon_url=self.owner().avatar.url)
+    self.panel_embed.set_author(name='Control Panel', icon_url=self.owner().display_avatar.url)
     self.panel_embed.set_footer(text='This headcount will auto end at')
 
     for care in self.care_reacts:
