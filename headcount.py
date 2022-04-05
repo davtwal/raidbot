@@ -6,9 +6,8 @@ import discord
 from discord.ext import commands
 
 import dungeons
-from globalvars import REACT_X, REACT_CHECK, REACT_PLAY, is_debug
+from globalvars import REACT_X, REACT_CHECK, REACT_PLAY
 from hc_afk_helpers import get_field_index, ask_location, get_voice_ch
-
 
 REACT_WASTE = '🗑'
 
@@ -29,7 +28,7 @@ class Headcount:
   STATUS_ENDED = 2
   
   def __init__(self, manager,
-                     bot: commands.Bot,
+                     bot,
                      ctx: commands.Context,
                      status_ch: discord.TextChannel,
                      dungeon: dungeons.Dungeon):
@@ -62,7 +61,7 @@ class Headcount:
       label = dungeons.get_react_name(care.id, self.dungeon)
       self.panel_embed.add_field(inline=True, name=label, value='None')    
     
-    here_ping = '`@here`' if is_debug() else '@here'
+    here_ping = '`@here`' if self.bot.is_debug() else '@here'
     self.status_msg = self.status_ch.send(content=HC_ANNOUNCE_STR.format(here_ping, self.dungeon.name, self.owner().mention), embed=self.status_embed)
     
     self.panel_msg = self.ctx.send(embed=self.panel_embed, view=HeadcountPanelView(self))

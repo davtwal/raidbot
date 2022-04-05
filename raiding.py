@@ -5,35 +5,12 @@ from typing import List, Dict, Optional, Tuple
 import asyncio
 import re
 
-from globalvars import RaidingSection, get_staff_roles, get_event_roles, get_raid_roles, confirmation, get_section, get_susproof_channel, get_vetraider_role, get_deafcheck_warntime, get_deafcheck_sustime
+from globalvars import RaidingSection, get_staff_roles, get_event_roles, get_raid_roles, confirmation
 
 import dungeons
 from hc_afk_helpers import channel_checks, create_list, dungeon_checks, get_voice_ch, ask_location
 from hc_afk_helpers import DCHECK_LIST, DCHECK_INVALID
-import section_manager as sm
-
-managers: Dict[int, Dict[str, sm.SectionAFKCheckManager]] = {}
-
-import globalvars as g
-
-def get_managers():
-  return managers
-
-def setup_managers(bot: commands.Bot, new_managers):
-  print('Setting up raid managers...')
-  for gid in new_managers:
-    managers[gid] = {}
-    guild = bot.get_guild(gid)
-    if guild is None:
-      continue
-    
-    print(f'Guild {guild.name} (ID {gid}):')    
-    for section_name in new_managers[gid]:
-      print(f'- Section "{section_name}"')
-      managers[gid][section_name] = sm.SectionAFKCheckManager(bot, guild, section_name)
-  
-  print("Finshed setting up raid managers.")
-  pass
+from shattersbot import ShattersBot
 
 DEAFEN_WARNING_MESSAGE = """I've detected that you've deafened inside of one of {}'s raiding channels while not being allowed to.
 **You have {} seconds to undeafen, or you may be suspended.** Please undeafen immediately.
@@ -56,7 +33,7 @@ If you do not have suspension permissions, you can ping anyone who does to have 
 DEAFEN_THANK_UNDEAFEN = """Thank you for undeafening. Enjoy the raid!"""
 
 class RaidingCmds(commands.Cog, name='Raiding Commands'):
-  def __init__(self, bot: commands.Bot):
+  def __init__(self, bot: ShattersBot):
     self.bot = bot
   
   ## Listing Commands
@@ -94,7 +71,7 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
       await ctx.send("Error: statuschannel's type was not text. Please contact an admin.")
       return
 
-    await managers[ctx.guild.id][raid_section.name].try_create_headcount(bot, ctx, statuschannel, d)
+    await bot.managers[ctx.guild.id][raid_section.name].try_create_headcount(bot, ctx, statuschannel, d)
 
   ## Actual headcount commands
 
@@ -164,9 +141,9 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
   deafen_list: Dict[int, asyncio.Task] = {} # deafened user's id: task
   async def check_deafen(self, member: discord.Member, afk_owner: discord.Member):
     print(f'[DEAFCHECK]: Deafen detected by {member.display_name}; afk owner {afk_owner.display_name}')
-    warntime = get_deafcheck_warntime(member.guild.id)
-    susptime = get_deafcheck_sustime(member.guild.id)
-    susproof_ch = member.guild.get_channel(get_susproof_channel(member.guild.id))
+    warntime = self.bot.get_deafcheck_warntime(member.guild.id)
+    susptime = self.bot.get_deafcheck_sustime(member.guild.id)
+    susproof_ch = member.guild.get_channel(self.bot.get_susproof_channel(member.guild.id))
 
     if susproof_ch is None or susproof_ch.type != discord.ChannelType.text:
       print(f'[DEAFCHECK]: No suspension proof channel found, or suspension proof channel is not a text channel.')
@@ -214,9 +191,9 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
     if after.channel is None or after.channel.id is None:
       return
     
-    for g_id in managers:
-      for sect_name in managers[g_id]:
-        manager = managers[g_id][sect_name]
+    for g_id in self.bot.managers:
+      for sect_name in self.bot.managers[g_id]:
+        manager = self.bot.managers[g_id][sect_name]
         sect = manager.section
 
         if (before.channel and before.channel.id == after.channel.id or after.self_deaf) and after.channel.id in manager.section.voice_chs:
@@ -228,7 +205,7 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
               if role in [r.name for r in member.roles]:
                 return # We don't care about staff who are deafened (for now)
 
-            if sect.deafcheck_vet or get_vetraider_role(member.guild.id) not in [r.id for r in member.roles]:
+            if sect.deafcheck_vet or self.bot.get_vetraider_role(member.guild.id) not in [r.id for r in member.roles]:
               #print('|| Either not veteran or veterans are also checked.')
               if after.self_deaf:
                 #print('|| Is now deafened.')
@@ -275,7 +252,7 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
       return None
     
     # Step 3: Tell the manager to start the AFK check.
-    return await managers[ctx.guild.id][raid_section.name].try_create_afk(self.bot, ctx, status_ch, voice_ch, dungeon, lazy, location)
+    return await self.bot.managers[ctx.guild.id][raid_section.name].try_create_afk(self.bot, ctx, status_ch, voice_ch, dungeon, lazy, location)
   
   @commands.command(name='eafk')
   @commands.has_any_role(*get_event_roles())
@@ -469,7 +446,7 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
     section: RaidingSection = None
     cont, section = await channel_checks(ctx)
     if cont:
-      if ctx.author.id not in managers[ctx.guild.id][section.name].active_afks:
+      if ctx.author.id not in self.bot.managers[ctx.guild.id][section.name].active_afks:
         await ctx.send("You do not have an active AFK check!")
         return
       if transferTo is None or len(transferTo) < 18:
@@ -487,7 +464,7 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
             if section.role_check(dest_user.roles):
               do_transf = await confirmation(ctx, self.bot, f'Do you accept the transfer from {ctx.author.mention}?', auth_override=dest_user, timeout=20)
               if do_transf:
-                result = await managers[ctx.guild.id][section.name].transfer_afk(ctx.author, dest_user)
+                result = await self.bot.managers[ctx.guild.id][section.name].transfer_afk(ctx.author, dest_user)
                 if result:
                   await ctx.send(f"AFK check transferred to {dest_user.mention}")
                 else:

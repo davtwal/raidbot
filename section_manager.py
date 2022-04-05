@@ -6,22 +6,21 @@ import discord
 from discord.ext import commands
 
 import dungeons
-from globalvars import get_section, get_vetraider_role, get_raider_role, get_afk_relevanttime
 import afk_check as ac
-from headcount import Headcount
+import headcount as hcm
 
 class SectionAFKCheckManager:
   def __init__(self, bot: commands.Bot, guild: discord.Guild, sectionname):
-    self.guild = guild
-    self.section = get_section(guild.id, sectionname)
     self.bot = bot
+    self.guild = guild
+    self.section = self.bot.get_section(guild.id, sectionname)
     # Keeps track of actively running AFK checks.
     # Key: Owner's ID. Value: AFK check.
     self.active_afks: Dict[int, ac.AFKCheck] = {}
 
     # Keeps track of actively running headcounts.
     # Key: Owner's ID. Value: Headcount.
-    self.active_hcs: Dict[int, Headcount] = {}
+    self.active_hcs: Dict[int, hcm.Headcount] = {}
 
     # Keeps track of the previous AFK checks' owners for each voice channel.
     # This is used for deaf checking, as AFK checks are removed once they are ended
@@ -92,7 +91,7 @@ class SectionAFKCheckManager:
         await ctx.send(f'There is already a(n) {dungeon.name} headcount up in this section!')
         return False
     
-    self.active_hcs[ctx.author.id] = Headcount(self, bot, ctx, status_ch, dungeon)
+    self.active_hcs[ctx.author.id] = hcm.Headcount(self, bot, ctx, status_ch, dungeon)
     
     try:
       await self.active_hcs[ctx.author.id].start()
@@ -103,7 +102,7 @@ class SectionAFKCheckManager:
       return False
     pass
   
-  async def try_convert_hc_to_afk(self, hc: Headcount, voice_ch: discord.VoiceChannel, lazy:bool, location: str) -> bool:
+  async def try_convert_hc_to_afk(self, hc: hcm.Headcount, voice_ch: discord.VoiceChannel, lazy:bool, location: str) -> bool:
     for auth_id in self.active_afks:
       if self.active_afks[auth_id].dungeon.code == hc.dungeon.code:
         if self.active_afks[auth_id].status != ac.AFKCheck.STATUS_POST:
@@ -119,7 +118,7 @@ class SectionAFKCheckManager:
     return True
   
   def get_raider_role(self):
-    role = get_vetraider_role(self.guild.id) if self.section.is_vet is True else get_raider_role(self.guild.id)
+    role = self.bot.get_vetraider_role(self.guild.id) if self.section.is_vet is True else self.bot.get_raider_role(self.guild.id)
     self._log(f"Get Raider Role: {role} {self.section.is_vet}")
     return self.guild.get_role(role)
   
@@ -146,7 +145,7 @@ class SectionAFKCheckManager:
       # No active AFKs - check for previous ones.
       print(f'checking previous: {voice_chid} in {self.previous_afks.keys()}')
       if voice_chid in self.previous_afks.keys():
-        if (datetime.now() - self.previous_afks[voice_chid][1]).total_seconds() <= get_afk_relevanttime(self.guild.id):
+        if (datetime.now() - self.previous_afks[voice_chid][1]).total_seconds() <= self.bot.get_afk_relevanttime(self.guild.id):
           return self.previous_afks[voice_chid][0]
     
     return 0
@@ -173,8 +172,14 @@ class SectionAFKCheckManager:
     self._log(f'Removed hc owned by {owner_id}.')
   
   async def remove_afk(self, owner_id: int, report: bool = False):
+    try:
+      afk = self.active_afks.pop(owner_id)
+      self.previous_afks[afk.voice_ch.id] = (owner_id, datetime.now())
+    except KeyError:
+      self._log(f"Key error removing AFK by {owner_id}")
+      return
+    
     if report:
-      afk = self.active_afks[owner_id]
       info_ch: discord.TextChannel = self.guild.get_channel(self.section.run_info_ch)
       self._log(f'REPORT: {self.guild.name}, {self.section.name}, {self.section.run_info_ch}')
 
@@ -185,11 +190,13 @@ class SectionAFKCheckManager:
           info_embed.set_footer(text=f'Run started at {afk.afk_embed.timestamp}')
           
           key_list = [u.mention for u in afk._keys()]
-          early_list = [u.mention for u in afk.has_early_loc]
+          early_list = [f"{u.mention}`{u.display_name}`" for u in afk.has_early_loc]
+          drag_list = [f"<@{u}>" for u in afk.drag_raiders]
           join_list = [f"{u.mention}`{u.display_name}`" for u in afk.joined_raiders]
           raid_list = [f"{u.mention}`{u.display_name}`" for u in afk.voice_ch.members]
           info_embed.add_field(inline=False, name='Keys', value=f'{key_list if len(key_list) > 0 else "None"}')
           info_embed.add_field(inline=False, name='Early', value=f'{early_list if len(early_list) > 0 else "None"}')
+          info_embed.add_field(inline=False, name='Dragged', value=f'{drag_list if len(drag_list) > 0 else "None"}')
           info_embed.add_field(inline=False, name='Joined', value=f'{join_list if len(join_list) > 0 else "None"}')
           info_embed.add_field(inline=False, name='Raiders', value=f'{raid_list if len(raid_list) > 0 else "None"}')
           
@@ -204,9 +211,7 @@ class SectionAFKCheckManager:
           
       else:
         self._log('No info ch')
-            
-    self.active_afks.pop(owner_id)
-    self.previous_afks[afk.voice_ch.id] = (owner_id, datetime.now())
+
     self._log(f"Removed afk owned by {owner_id}.")
     
   async def handle_lounge_join(self, member: discord.Member):    

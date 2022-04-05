@@ -3,18 +3,19 @@ import discord
 import asyncio
 from discord.ext import commands
 
-from globalvars import get_veteran_roles, get_staff_roles, get_event_roles, get_manager_roles, get_raidstream_role, get_raider_role, get_vetraider_role
+from globalvars import get_veteran_roles, get_staff_roles, get_event_roles, get_manager_roles
 from globalvars import confirmation
-from globalvars import get_section_from_voice_ch
+
+from shattersbot import ShattersBot
 
 #from globalvars import get_vetchannels, get_clean_links, get_staff_roles, get_unlockables, get_event_roles, get_admin_roles, get_manager_roles, get_raider_role, get_raidstream_role, confirmation, get_setcap_max, get_setcap_min
 #from globalvars import get_setcap_vetmax, get_setcap_vetmin
-import globalvars as g
+#import globalvars as g
 
 import re
 
 class ExtraCmds(commands.Cog, name='Extra Commands'):
-  def __init__(self, bot: commands.Bot):
+  def __init__(self, bot: ShattersBot):
     self.bot = bot
   
   @commands.command(name='setcap')
@@ -40,7 +41,7 @@ class ExtraCmds(commands.Cog, name='Extra Commands'):
       await ctx.send("You must be connected to a voice channel to use this command.")
       return
     
-    section = get_section_from_voice_ch(ctx.guild.id, voice_ch.id)
+    section = self.bot.get_section_from_voice_ch(ctx.guild.id, voice_ch.id)
     if section is None or section.allow_setcap is False or section.role_check(ctx.author.roles) is False:
       await ctx.send(f"You are not allowed to set the cap of {voice_ch.mention}.")
       return
@@ -66,13 +67,13 @@ class ExtraCmds(commands.Cog, name='Extra Commands'):
       await ctx.send("You must be connected to a voice channel to use this command.")
       return
     
-    section = get_section_from_voice_ch(ctx.guild.id, voice_ch.id)
+    section = self.bot.get_section_from_voice_ch(ctx.guild.id, voice_ch.id)
     if section is None or section.allow_unlock is False  or section.role_check(ctx.author.roles) is False:
       await ctx.send(f"You are not allowed to unlock {voice_ch.mention}.")
       return
-      
+
     #TODO: Check and see if this channel has an AFK check up.
-    raider_role = ctx.guild.get_role(get_raider_role(ctx.guild.id))
+    raider_role = ctx.guild.get_role(self.bot.get_vetraider_role(ctx.guild.id)) if section.is_vet else ctx.guild.get_role(self.bot.get_raider_role(ctx.guild.id))
     if raider_role is None:
       await ctx.send('Error: Raider role not found. Please contact an admin.')
       return
@@ -91,13 +92,13 @@ class ExtraCmds(commands.Cog, name='Extra Commands'):
       await ctx.send("You must be connected to a voice channel to use this command.")
       return
       
-    section = get_section_from_voice_ch(ctx.guild.id, voice_ch.id)
+    section = self.bot.get_section_from_voice_ch(ctx.guild.id, voice_ch.id)
     if section is None or section.allow_unlock is False or section.role_check(ctx.author.roles) is False:
       await ctx.send(f"You are not allowed to lock {voice_ch.mention}.")
       return
       
     #TODO: Check and see if this channel has an AFK check up.
-    raider_role = ctx.guild.get_role(get_raider_role(ctx.guild.id))
+    raider_role = ctx.guild.get_role(self.bot.get_raider_role(ctx.guild.id))
     if raider_role is None:
       await ctx.send('Error: Raider role not found. Please contact an admin.')
       return
@@ -115,12 +116,12 @@ class ExtraCmds(commands.Cog, name='Extra Commands'):
   async def clean_channel(self, ctx: commands.Context):
     """[ERL+] Removes all non-staff from the voice channel the user is in."""
     
-    voice_ch = ctx.author.voice.channel if ctx.author.voice and ctx.author.voice.channel else None
+    voice_ch: discord.VoiceChannel = ctx.author.voice.channel if ctx.author.voice and ctx.author.voice.channel else None
     if voice_ch is None:
       await ctx.send("You must be connected to a voice channel to use this command.")
       return
     
-    section = get_section_from_voice_ch(ctx.guild.id, voice_ch.id)
+    section = self.bot.get_section_from_voice_ch(ctx.guild.id, voice_ch.id)
     if section is None or section.role_check(ctx.author.roles) is False:
       await ctx.send(f"You are not allowed to clean {voice_ch.mention}")
       return
@@ -131,12 +132,12 @@ class ExtraCmds(commands.Cog, name='Extra Commands'):
       return
           
     staff_roles = get_staff_roles()
-    if g.bot_debugmode:
+    if self.bot.is_debug():
       await ctx.send("Staff Roles: " + str(staff_roles))
       
     move_awaits = []
     for member in voice_ch.members:
-      if g.bot_debugmode:
+      if self.bot.is_debug():
         await ctx.send("Analyzing member: " + member.mention)
       skip = False
       for role in member.roles:
@@ -146,10 +147,13 @@ class ExtraCmds(commands.Cog, name='Extra Commands'):
         
       if skip: continue
       
-      move_awaits.append(member.move_to(lounge_ch, reason=f'Channel cleaned by {ctx.author.display_name}'))
+      move_awaits.append(asyncio.create_task(member.move_to(lounge_ch, reason=f'Channel cleaned by {ctx.author.display_name}')))
       
     if len(move_awaits) > 0:
-      await asyncio.wait(move_awaits)
+      try:
+        await asyncio.wait(move_awaits)
+      except discord.HTTPException:
+        pass
     await ctx.send("Finished cleaning.")
     pass
   
@@ -203,7 +207,7 @@ class ExtraCmds(commands.Cog, name='Extra Commands'):
 
   @commands.Cog.listener()
   async def on_voice_state_update(self, member: discord.Member, before, after):
-    member_rsrole = member.get_role(get_raidstream_role(member.guild.id))
+    member_rsrole = member.get_role(self.bot.get_raidstream_role(member.guild.id))
     if member_rsrole is not None:
       await member.remove_roles(member_rsrole)
       
@@ -241,7 +245,7 @@ class ExtraCmds(commands.Cog, name='Extra Commands'):
           return
     
     if await confirmation(ctx, self.bot, "Give " + member.mention + " temporary streaming perms?", member.mention + " was given streaming perms."):
-      role = ctx.guild.get_role(get_raidstream_role(ctx.guild.id))
+      role = ctx.guild.get_role(self.bot.get_raidstream_role(ctx.guild.id))
       if role is None:
         await ctx.send("Error: Raid streaming role not found. Please contact the bot dev or an admin.")
       

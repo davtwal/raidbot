@@ -1,4 +1,4 @@
-from typing import Dict, List
+
 from datetime import datetime
 import pytz
 
@@ -10,60 +10,16 @@ from discord.ext import commands
 from dotenv import load_dotenv
 load_dotenv()
 
-from globalvars import DISCORD_TOKEN, get_raid_roles, get_guild_ids, get_guild_section_names, update_dict
-from globalvars import get_veteran_roles
+from globalvars import DISCORD_TOKEN, get_raid_roles, get_veteran_roles
 from extra import ExtraCmds
-from raiding import RaidingCmds, setup_managers
+from raiding import RaidingCmds
 from admin import AdminCmds
 from errorhandler import ErrorHandling
-from tracking import TrackingCog, setup_dbs
+#from tracking import TrackingCog
+from shattersbot import ShattersBot
 
 import random
 import re
-
-DEBUG_LOG_CHANNEL = 955912379902861332
-
-class ShattersBot(commands.Bot):
-  def __init__(self):
-    intents = discord.Intents.default()
-    intents.members = True
-    intents.messages = True
-
-    super().__init__(command_prefix="^", intents=intents)
-  
-  async def _log(self, logstr):
-    try:
-      await self.debugch.send(f'`{logstr}`')
-    except:
-      print('could not send')
-      pass
-
-  def log(self, debugstr):
-    logstr = f"({datetime.now(tz=pytz.timezone('US/Pacific')).replace(microsecond=0).time()}) {debugstr}"
-    asyncio.create_task(self._log(logstr))
-    print(logstr)
-
-  async def on_ready(self):
-    try:
-      self.debugch = await self.fetch_channel(DEBUG_LOG_CHANNEL)
-    except:
-      print(f"!!!! COULD NOT FETCH DEBUG CHANNEL: {DEBUG_LOG_CHANNEL}!!!!!")
-
-    self.log('--------------------BOOT UP--------------------')
-    self.log(f'Bot logged in: {self.user} (ID {self.user.id})')
-    self.log('-----------------------------------------------')
-    #super().activity = discord.Game(name='shamters')
-    
-    manager_setups: Dict[int, List[str]] = {}
-
-    update_dict(self)
-    for guild in get_guild_ids():
-      manager_setups[guild] = []
-      for section in get_guild_section_names(guild):
-        manager_setups[guild].append(section)
-        
-    setup_managers(self, manager_setups)
-    setup_dbs(self)
 
 bot = ShattersBot()
 
@@ -161,32 +117,7 @@ bot.add_cog(ErrorHandling(bot))
 bot.add_cog(AdminCmds(bot))
 bot.add_cog(ExtraCmds(bot))
 bot.add_cog(RaidingCmds(bot))
-bot.add_cog(TrackingCog(bot))
+#bot.add_cog(TrackingCog(bot))
 bot.add_cog(RunsWhenCog(bot))
 
 bot.run(DISCORD_TOKEN)
-
-class VoteButton(discord.ui.Button):
-  def __init__(self, style):
-    super().__init__(style=style, label='0')
-    self.count = 0
-    self.pressed_by = []
-  
-  async def callback(self, interaction: discord.Interaction):
-    assert self.view is not None
-    
-    if interaction.user not in self.pressed_by:
-      self.count += 1
-      self.label = str(self.count)
-      self.pressed_by.append(interaction.user)
-      await interaction.response.edit_message(view=self.view)
-  pass
-
-class VoteView(discord.ui.View):
-  def __init__(self):
-    super().__init__()
-    self.add_item(VoteButton(discord.ButtonStyle.green))
-    self.add_item(VoteButton(discord.ButtonStyle.red))
-    self.add_item(VoteButton(discord.ButtonStyle.gray))
-  
-  pass

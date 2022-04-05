@@ -1,12 +1,8 @@
 from json.encoder import JSONEncoder
 import os
-import json
-from unittest.mock import DEFAULT
 import discord
 from discord.ext import commands
 from typing import List, Dict
-
-from discord.ext.commands.bot import when_mentioned
 
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 REACT_X = '❌'
@@ -80,80 +76,8 @@ def get_event_roles() -> List[str]:
 def get_staff_roles() -> List[str]:
   return ROLES[0] + get_event_roles()
 
-gdict = {}
-
 bot_debugmode = False
 
-#single items
-GDICT_RAIDSTREAM_ROLE = 'raidstream'
-GDICT_RAIDER_ROLE = 'raiderrole'
-GDICT_VETRAIDER_ROLE = 'vetrole'
-GDICT_NITRO_ROLE = 'nitro'
-GDICT_EARLY_ROLES = 'earlies'
-GDICT_SUSPROOF_CH = 'susproof'
-GDICT_RUNINFO_CH = 'runinfo'
-GDICT_DEAFCHECK_WARNTIME = 'deafch_warn'      # Amount of time after deafening where a raider gets warned (s).
-GDICT_DEAFCHECK_SUSTIME = 'deafch_susp'       # Amount of time after being warned where the RL is notified (s).
-GDICT_AFK_RELEVANTTIME = 'afk_relevant_time'  # Amount of time an AFK check is considered 'relevant' for a voice channel.
-
-# raiding sections
-GDICT_SECTIONS = 'sections'
-GDICT_SECTION_EVENTS = 'event'
-GDICT_SECTION_RAIDING = 'raiding'
-GDICT_SECTION_VETERAN = 'veteran'
-
-#GDICT_DUNGEON_ROLE_WHITELIST = 'dung_role_wlist'
-
-DEFAULT_GUILD_DICT = {
-  GDICT_RAIDSTREAM_ROLE: '',
-  GDICT_RAIDER_ROLE: '',
-  GDICT_VETRAIDER_ROLE: '',
-  GDICT_NITRO_ROLE: '',
-  GDICT_EARLY_ROLES: [],
-  GDICT_SUSPROOF_CH: 0,
-  GDICT_RUNINFO_CH: 0,
-  GDICT_DEAFCHECK_WARNTIME: 2,
-  GDICT_DEAFCHECK_SUSTIME: 90,
-  GDICT_AFK_RELEVANTTIME: 30 * 60, # 30 minutes
-#  GDICT_DUNGEON_ROLE_WHITELIST: {},
-  GDICT_SECTIONS: {}
-}
-
-def get_guild_ids():
-  return gdict.keys()
-
-def get_guild_section_names(guild_id):
-  return gdict[guild_id][GDICT_SECTIONS].keys()
-
-def get_raidstream_role(guild_id) -> str:
-  return gdict[guild_id][GDICT_RAIDSTREAM_ROLE]
-
-def get_raider_role(guild_id) -> str:
-  return gdict[guild_id][GDICT_RAIDER_ROLE]
-
-def get_vetraider_role(guild_id) -> str:
-  return gdict[guild_id][GDICT_VETRAIDER_ROLE]
-
-def get_nitro_role(guild_id) -> str:
-  return gdict[guild_id][GDICT_NITRO_ROLE]
-
-def get_early_roles(guild_id) -> List[str]:
-  return gdict[guild_id][GDICT_EARLY_ROLES]
-
-def get_susproof_channel(guild_id) -> str:
-  return gdict[guild_id][GDICT_SUSPROOF_CH]
-
-def get_deafcheck_warntime(guild_id) -> int:
-  return gdict[guild_id][GDICT_DEAFCHECK_WARNTIME]
-
-def get_deafcheck_sustime(guild_id) -> int:
-  return gdict[guild_id][GDICT_DEAFCHECK_SUSTIME]
-
-def get_afk_relevanttime(guild_id) -> int:
-  return gdict[guild_id][GDICT_AFK_RELEVANTTIME]
-
-def get_runinfo_channel(guild_id) -> int:
-  return gdict[guild_id][GDICT_RUNINFO_CH]
 
 #def get_role_whitelist(guild_id) -> Dict[str, List[int]]:
 #  return gdict[guild_id][GDICT_DUNGEON_ROLE_WHITELIST]
@@ -251,20 +175,21 @@ class RaidingSection:
 
   def __setitem__(self, key, value:str):
     try:
+      print(f'setting {key} to {value}')
       if key == 'cmd_ch':           self.cmd_ch         = int(value)
       elif key == 'status_ch':      self.status_ch      = int(value)
       elif key == 'run_info_ch':    self.run_info_ch    = int(value)
       elif key == 'min_role_tier':  self.min_role_tier  = int(value)
       elif key == 'lounge_ch':      self.lounge_ch      = int(value)
-      elif key == 'voice_chs':      self.voice_chs      = [int(x) for x in value.split()]
-      elif key == 'drag_chs':       self.drag_chs       = [int(x) for x in value.split()]
+      elif key == 'voice_chs':      self.voice_chs      = [int(x) for x in value.split()] if isinstance(value, str) else value
+      elif key == 'drag_chs':       self.drag_chs       = [int(x) for x in value.split()] if isinstance(value, str) else value
       elif key == 'is_vet':         self.is_vet         = bool(value)
       elif key == 'allow_unlock':   self.allow_unlock   = bool(value)
       elif key == 'allow_setcap':   self.allow_setcap   = bool(value)
       elif key == 'min_vc_cap':     self.vc_min         = int(value)
       elif key == 'max_vc_cap':     self.vc_max         = int(value)
-      elif key == 'whitelist':      self.whitelist      = [x for x in value.split()]
-      elif key == 'blacklist':      self.blacklist      = [x for x in value.split()]
+      elif key == 'whitelist':      self.whitelist      = [x for x in value.split()] if isinstance(value, str) else value
+      elif key == 'blacklist':      self.blacklist      = [x for x in value.split()] if isinstance(value, str) else value
       elif key == 'deafcheck':      self.deafcheck      = bool(value)
       elif key == 'deafcheck_vet':  self.deafcheck_vet  = bool(value)
     except:
@@ -313,43 +238,6 @@ class RaidingSection:
     return True
   
   pass
-
-def get_section(guild_id, name) -> RaidingSection:
-  try:
-    return gdict[guild_id][GDICT_SECTIONS][name]
-  except KeyError:
-    return None
-
-def get_event_section(guild_id) -> RaidingSection:
-  return gdict[guild_id][GDICT_SECTIONS][GDICT_SECTION_EVENTS]
-
-def get_raiding_section(guild_id) -> RaidingSection:
-  return gdict[guild_id][GDICT_SECTIONS][GDICT_SECTION_RAIDING]
-
-def get_veteran_section(guild_id) -> RaidingSection:
-  return gdict[guild_id][GDICT_SECTIONS][GDICT_SECTION_VETERAN]
-
-# NEW CODE
-def get_cmd_channels(guild_id) -> list:
-  ch_list = []
-  for section in gdict[guild_id][GDICT_SECTIONS]:
-    ch_list.append(section.cmd_ch)
-  return ch_list
-
-def get_section_from_cmd_ch(guild_id, ch_id) -> RaidingSection:
-  for section in gdict[guild_id][GDICT_SECTIONS]:
-    if gdict[guild_id][GDICT_SECTIONS][section].cmd_ch == ch_id:
-      return gdict[guild_id][GDICT_SECTIONS][section]
-    
-  return None
-
-def get_section_from_voice_ch(guild_id, ch_id) -> RaidingSection:
-  for section in gdict[guild_id][GDICT_SECTIONS]:
-    for voice_ch in gdict[guild_id][GDICT_SECTIONS][section].voice_chs:
-      if voice_ch == ch_id:
-        return gdict[guild_id][GDICT_SECTIONS][section]
-      
-  return None  
 
 ## OLD CODE
 #def get_channelpairs(guild_id):
@@ -413,50 +301,7 @@ async def confirmation(ctx: commands.Context, bot: commands.Bot, text, checktext
     await msg.edit(embed=discord.Embed(description='Check timed out.'),delete_after=5)
     return False
 
-def load_json(json_txt):
-  with open(json_txt, "r") as f:
-    global gdict
-    
-    print(f"LOADING JSON: {json_txt}")
-    
-    gdict = {}
-    tempdict = json.loads(str(f.read()))
-    
-    for guild in tempdict:
-      print(f'Fixing Guild: {guild}')
-      gdict[int(guild)] = tempdict[guild]
-      
-      for item in DEFAULT_GUILD_DICT:
-        if item not in gdict[int(guild)]:
-          print(f'++ {item} not found; adding')
-          gdict[int(guild)][item] = DEFAULT_GUILD_DICT[item]
-      
-      for section in gdict[int(guild)][GDICT_SECTIONS]:
-        print(f'- Fixing Section: {section}')
-        gdict[int(guild)][GDICT_SECTIONS][section] = RaidingSection(name=section, input_dict=gdict[int(guild)][GDICT_SECTIONS][section])
-
-def update_dict(bot: commands.Bot):
-  for guild in bot.guilds:
-    if guild.id not in gdict:
-      print(f'Guild {guild.name} has been added')
-      gdict[guild.id] = DEFAULT_GUILD_DICT
-      
-  save_json(SHATTERS_JSON_TXT)
-  pass
-
-def is_debug() -> bool:
-  return bot_debugmode
-
 class Encoder(JSONEncoder):
   def default(self, o):
     return o.__dict__()
 
-def save_json(json_text):
-  with open(json_text, "w") as f:
-    f.write(json.dumps(gdict, cls=Encoder))
-
-SHATTERS_JSON_TXT = "database.json"
-
-load_json(SHATTERS_JSON_TXT)
-
-#print(channelpairs)

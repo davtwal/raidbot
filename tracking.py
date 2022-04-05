@@ -17,8 +17,6 @@ from discord.ext import commands
 import dungeons
 from dungeons import SHATTERS_DNAME, FUNGAL_DNAME, OSANC_DNAME, VOID_DNAME, CULT_DNAME, NEST_DNAME
 
-db_connections: Dict[int, Connection] = {}
-
 TRACKED_DUNGEONS = [SHATTERS_DNAME, OSANC_DNAME, VOID_DNAME, CULT_DNAME, FUNGAL_DNAME, NEST_DNAME]
 
 RUN_TRACK_TABLE = 'user_runs'
@@ -37,7 +35,7 @@ def setup_dbs(bot: commands.Bot):
   print('[SETUPDB]: Setting up databases.')
   for guild in bot.guilds:
     if guild.id == SHATTERS_DISCORD_ID:
-      db_connections[guild.id] = mysql.connector.connect(
+      bot.db_connections[guild.id] = mysql.connector.connect(
         host = DB_HOSTNAME,
         user = DB_USERNAME,
         password = DB_PASSWORD,
@@ -45,20 +43,20 @@ def setup_dbs(bot: commands.Bot):
         database = "shatters"
       )
 
-      bot.log(f'[SETUPDB]: {guild.name} SHATTERS: {db_connections[guild.id]}')
+      bot.log(f'[SETUPDB]: {guild.name} SHATTERS: {bot.db_connections[guild.id]}')
       pass
     else:
       bot.log(f'[SETUPDB]: {guild.name} setup as {guild.name.lower()}.db')
-      db_connections[guild.id] = sqlite3.connect(f'{guild.name.lower()}.db')
+      bot.db_connections[guild.id] = sqlite3.connect(f'{guild.name.lower()}.db')
       for e in DB_SETUP_EXECUTES:
         #print(f'[SETUPDB]: -- Executing {e}')
-        db_connections[guild.id].execute(e)
+        bot.db_connections[guild.id].execute(e)
       bot.log('[SETUPDB]: -- Committing')
-      db_connections[guild.id].commit()
+      bot.db_connections[guild.id].commit()
   pass
 
-def add_runs_done(guild_id, d_code, users: List[discord.Member], leader: discord.Member):
-  cursor = db_connections[guild_id].cursor()
+def add_runs_done(bot, guild_id, d_code, users: List[discord.Member], leader: discord.Member):
+  cursor = bot.db_connections[guild_id].cursor()
   user_ids = [str(user.id) for user in users]
   
   if guild_id == SHATTERS_DISCORD_ID:
@@ -73,7 +71,7 @@ def add_runs_done(guild_id, d_code, users: List[discord.Member], leader: discord
       print(f"-- {sql}")
       cursor.execute(sql)
     
-    db_connections[guild_id].commit()
+    bot.db_connections[guild_id].commit()
     return
 
   column = d_code if d_code in TRACKED_DUNGEONS else EVENTS_COL_NAME
@@ -85,23 +83,19 @@ def add_runs_done(guild_id, d_code, users: List[discord.Member], leader: discord
 
   # update leader's runs led for this type
   cursor.execute(f"update {RUN_TRACK_TABLE} set {LEAD_PREFIX+column} = {LEAD_PREFIX+column} + 1 where {ID_COL_NAME} = {leader.id}")
-  db_connections[guild_id].commit()
+  bot.db_connections[guild_id].commit()
   pass
 
-def get_run_stats(guild_id, user_id) -> Tuple[int, ...]:
-  if guild_id == SHATTERS_DISCORD_ID:
-    
-    return
-
-  cursor = db_connections[guild_id].execute(f"select * from {RUN_TRACK_TABLE} where {ID_COL_NAME} = {user_id}")
+def get_run_stats(bot, guild_id, user_id) -> Tuple[int, ...]:
+  cursor = bot.db_connections[guild_id].execute(f"select * from {RUN_TRACK_TABLE} where {ID_COL_NAME} = {user_id}")
   print('[GET_STATS]: Finding stats for {user_id}')
   res = cursor.fetchone()
   # the [1:] chops off the ID column
   return res[1:] if res else None
 
-def close_connections():
-  for con in db_connections:
-    db_connections[con].close()
+def close_connections(bot):
+  for con in bot.db_connections:
+    bot.db_connections[con].close()
 
 import re
 STATS_MSG_LEN = len(';stats')
@@ -144,7 +138,7 @@ class TrackingCog(commands.Cog):
         additional = message.author.display_name
         uid = message.author.id
         
-      stats = get_run_stats(message.guild.id, uid)
+      stats = self.bot.get_run_stats(message.guild.id, uid)
       if stats is None:
         await message.channel.send(embed=discord.Embed(description='This user has no additional stats logged on ShattsBot.'))
       

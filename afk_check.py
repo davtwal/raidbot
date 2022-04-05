@@ -1,5 +1,5 @@
 import asyncio
-from code import interact
+from random import randint, random
 from typing import Optional, List, Dict, Union
 from datetime import datetime
 import time
@@ -10,10 +10,8 @@ from discord.ext import commands
 
 import dungeons
 from globalvars import REACT_X, REACT_CHECK, REACT_PLAY, REACT_HOOK
-from globalvars import is_debug, get_staff_roles, get_nitro_role, get_early_roles, get_manager_roles
-#from section_manager import SectionAFKCheckManager
+from globalvars import get_staff_roles, get_manager_roles
 from hc_afk_helpers import ConfirmView, get_field_index, ask_location
-from tracking import add_runs_done
 
 CHANNEL_OPENING_WARNING_TIME = 5
 POST_AFK_TIME = 20
@@ -166,7 +164,7 @@ class AFKCheck:
   AFK_FOOTER_AUTO_END = 'This AFK check will end automatically in {}'
   
   async def start_afk(self, lazy):
-    here_ping = '`@here`' if is_debug() else '@here'
+    here_ping = '`@here`' if self.bot.is_debug() else '@here'
     self.join_emoji = self.bot.get_emoji(self.dungeon.react_portals[0])
     
     # Create auto-end/open timers
@@ -189,6 +187,9 @@ class AFKCheck:
     self.afk_embed.set_author(name=f'{self.dungeon.name} raid by {self.owner().display_name}', icon_url=self.owner().display_avatar.url)
     self.afk_embed.add_field(name='Reacts', value=self._build_afk_react_text())
     self.afk_embed.set_footer(text=footer_text)
+
+    if self.dungeon.images is not None:
+      self.afk_embed.set_image(url=self.dungeon.images[randint(0, len(self.dungeon.images) - 1)])
     
     self.panel_embed = discord.Embed(description=self._build_afk_panel_desc(lazy))
     self.panel_embed.set_author(name='Control Panel', icon_url=self.owner().display_avatar.url)
@@ -386,11 +387,11 @@ class AFKCheck:
     await self.afk_msg.edit(content='This AFK has ended.', embed=self.afk_embed, view=None)
     await self.panel_msg.edit(embed=self.panel_embed)
     
-    await self.manager.remove_afk(self.owner().id, report=self.dungeon.code == dungeons.SHATTERS_DNAME)
+    await self.manager.remove_afk(self.owner().id, report=self.dungeon.code == dungeons.SHATTERS_DNAME or self.dungeon.code == dungeons.HARDSHATTS_DNAME)
 
     # Add runs to those who are currently in the voice chat.
     self._log("Adding runs done")
-    add_runs_done(self.manager.guild.id, self.dungeon.code, self.voice_ch.members, self.owner())
+    self.bot.add_runs_done(self.manager.guild.id, self.dungeon.code, self.voice_ch.members, self.owner())
 
   async def end(self):
     self._log("End AFK check, close channel")
@@ -621,7 +622,7 @@ class AFKCheck:
       ACK_JOIN_WAIT: They've already clicked the join button, they aren't in the voice channel, and the voice channel is not open.
       ACK_JOIN_CANNOT_JOIN: They aren't in the voice channel and cannot join the raid due to the run being capped.
     """
-    for early_role in get_early_roles(self.ctx.guild.id):
+    for early_role in self.bot.get_early_roles(self.ctx.guild.id):
       if early_role in [role.id for role in user.roles]:
         await self._move_in_user(user, force=True)
         if user.id not in self.drag_raiders:
@@ -690,8 +691,8 @@ class AFKCheck:
       ACK_NITRO_SUCCESS: The user has an appropriate role and this is their first click.
       ACK_NITRO_REPEAT: The user has an appropriate role and this is a repeat click.
     """
-    nitro_role = get_nitro_role(self.ctx.guild.id)
-    early_roles = get_early_roles(self.ctx.guild.id)
+    nitro_role = self.bot.get_nitro_role(self.ctx.guild.id)
+    early_roles = self.bot.get_early_roles(self.ctx.guild.id)
     if nitro_role != '' or len(early_roles) > 0:
       nitro_role = self.ctx.guild.get_role(nitro_role)
       early = False

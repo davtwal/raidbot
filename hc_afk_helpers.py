@@ -5,7 +5,7 @@ import discord
 from discord.ext import commands
 
 import dungeons
-from globalvars import find_channel, get_section_from_cmd_ch, REACT_X, REACT_CHECK, RaidingSection
+from globalvars import find_channel, REACT_X, REACT_CHECK, RaidingSection
 #def check_vetleader(ctx: commands.Context):
 #  """Checks to see if the user is a veteran leader.
 #
@@ -74,7 +74,7 @@ async def channel_checks(ctx: commands.Context) -> Tuple[bool, RaidingSection]:
       [bool, RaidingSection]: Whether to continue with the headcount/afk, and if yes, what section it is in.
   """
   
-  section = get_section_from_cmd_ch(ctx.guild.id, ctx.channel.id)
+  section = ctx.bot.get_section_from_cmd_ch(ctx.guild.id, ctx.channel.id)
   if section is None:
     await ctx.send("This is not a valid channel for this command.")
     return False, None

@@ -31,7 +31,8 @@ class Dungeon:
                early_reacts:Dict[int, Tuple[int, str]]=None,
                primary_reacts:List[int]=None,
                secondary_reacts:List[int]=None,
-               max_keys:int=0):
+               max_keys:int=0,
+               images:List[str]=None):
     assert portal_reacts is not None
     assert key_reacts is not None
     self.code = None
@@ -42,6 +43,7 @@ class Dungeon:
     self.react_primary = primary_reacts
     self.react_secondary = secondary_reacts
     self.max_keys = max_keys
+    self.images = images
   
   def _build_portal_emoji(self, bot):
     portal = bot.get_emoji(self.react_portals[0])
@@ -233,11 +235,29 @@ dps_debuff = [R_CURSE, R_ARMORBREAK, R_EXPOSE]
 standard_buffs = [R_BERSERK, R_DAMAGING, R_INSPIRE, R_STUN, R_CURSE, R_ARMORBREAK, R_EXPOSE]
 
 SHATTERS_DNAME = 'shatters'
+HARDSHATTS_DNAME = 'hardshatts'
 OSANC_DNAME = 'o3'
 FUNGAL_DNAME = 'fungal'
 NEST_DNAME = 'nest'
 CULT_DNAME = 'cult'
 VOID_DNAME = 'void'
+
+shatters_images = [
+  "https://cdn.discordapp.com/attachments/901639195104280617/959566552120823858/archmage_icecharge.gif",
+  "https://cdn.discordapp.com/attachments/901639195104280617/959566553093898311/sentinel_sword_up.gif",
+  "https://cdn.discordapp.com/attachments/901639195104280617/959566553525923941/archmage_firebasic.gif",
+  "https://cdn.discordapp.com/attachments/901639195104280617/959566552888385536/largegrave.gif",
+  "https://cdn.discordapp.com/attachments/901639195104280617/960009141433298995/skull.gif",
+  "https://cdn.discordapp.com/attachments/901639195104280617/960009142523822120/king_blackcrystal.gif"
+]
+
+shatts_hardmode_images = [
+  "https://cdn.discordapp.com/attachments/901639195104280617/959566569015496714/archmage_birddance.gif",
+  "https://cdn.discordapp.com/attachments/901639195104280617/959566569304895518/archmage_crystalcharge.gif",
+  "https://cdn.discordapp.com/attachments/901639195104280617/959566552506708060/icon_orb_thing.png",
+  "https://cdn.discordapp.com/attachments/901639195104280617/960009578836271114/Stone_Idol.png",
+  "https://cdn.discordapp.com/attachments/901639195104280617/960009579079536670/Eye_of_the_King_Spiral.gif"
+]
 
 dungeonlist: Dict[str, Dict[str, Dungeon]] = {
   'Basic': {
@@ -289,7 +309,8 @@ dungeonlist: Dict[str, Dict[str, Dungeon]] = {
   'Exaltation': {
     FUNGAL_DNAME: Dungeon('Fungal Cavern',  [924714365251362856], [924723992949063730], None, [R_SLOW, R_MSEAL, R_FUNGAL, R_TRICKSTER, R_MYSTIC], standard_buffs),
     NEST_DNAME: Dungeon('Nest',             [924711683409215579], [924723993116803202], None, [R_SLOW, R_DAZE, R_FUNGAL, R_TRICKSTER], standard_buffs),
-    SHATTERS_DNAME: Dungeon('Shatters', [924809116755587112], [924723993070682202], {R_SWITCHRUSH: [3, 'Rusher'], R_FUNGAL: [2, 'Supreme Priest']}, [R_MSEAL, R_CSHIELD, R_TRICKSTER, R_SLOW], standard_buffs, 1),
+    SHATTERS_DNAME: Dungeon('Shatters', [924809116755587112], [924723993070682202], {R_SWITCHRUSH: [3, 'Rusher'], R_FUNGAL: [2, 'Supreme Priest']}, [R_MSEAL, R_CSHIELD, R_TRICKSTER, R_SLOW], standard_buffs, 1, shatters_images),
+    HARDSHATTS_DNAME: Dungeon('Hard Shatters', [924809116755587112], [924723993070682202], {R_FUNGAL: [2, 'Supreme Priest'], R_TRICKSTER: [2, None]}, [R_SWITCHRUSH, R_MSEAL, R_CSHIELD, R_SLOW], standard_buffs, 2, shatts_hardmode_images),
     CULT_DNAME: Dungeon('Cultist Hideout',  [924711683308519515], [924723992621903883], {R_RUSH: [2, None]}, [R_DAZE, R_TRICKSTER], [R_FUNGAL, R_MSEAL] + standard_buffs),
     VOID_DNAME: VoidDungeon('Void',         [924711683161739324], [924723992621903883, 924723993808887849], None, [R_FUNGAL, R_MSEAL], standard_buffs),
     OSANC_DNAME: SanctuaryDungeon('Oryx\'s Sanctuary', [924728919465267232], [924728746785775706, 924723993272004649, 924723992730927157, 924723993079074947], None, [R_TRICKSTER, R_FUNGAL], [R_MSEAL, R_MYSTIC] + standard_buffs)
