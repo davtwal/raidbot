@@ -1,3 +1,4 @@
+from datetime import datetime
 import sqlite3
 from sqlite3 import Connection
 from typing import List, Dict, Tuple
@@ -15,7 +16,8 @@ import discord
 from discord.ext import commands
 
 import dungeons
-from dungeons import SHATTERS_DNAME, FUNGAL_DNAME, OSANC_DNAME, VOID_DNAME, CULT_DNAME, NEST_DNAME
+from dungeons import SHATTERS_DNAME, FUNGAL_DNAME, OSANC_DNAME, VOID_DNAME, CULT_DNAME, NEST_DNAME, get
+from globalvars import get_manager_roles
 
 TRACKED_DUNGEONS = [SHATTERS_DNAME, OSANC_DNAME, VOID_DNAME, CULT_DNAME, FUNGAL_DNAME, NEST_DNAME]
 
@@ -56,23 +58,41 @@ def setup_dbs(bot: commands.Bot):
   pass
 
 def add_runs_done(bot, guild_id, d_code, users: List[discord.Member], leader: discord.Member):
-  cursor = bot.db_connections[guild_id].cursor()
-  user_ids = [str(user.id) for user in users]
+  def do_update():
+    cursor = bot.db_connections[guild_id].cursor()
+    user_ids = [str(user.id) for user in users]
   
-  if guild_id == SHATTERS_DISCORD_ID:
-    if d_code == SHATTERS_DNAME:
-      print(f'[ADD_RUNS]: Adding Shatters runs to {[u.display_name for u in users]}')
-      sql = f"update users set runs = runs + 1 where id in ({', '.join(user_ids)});"
-      print(f"-- {sql}")
-      cursor.execute(sql)
-    else:
-      print(f'[ADD_RUNS]: Adding event runs for {[u.display_name for u in users]}')
-      sql = f"update users set eventruns = eventruns + 1 where id in ({', '.join(user_ids)});"
-      print(f"-- {sql}")
-      cursor.execute(sql)
+
+
+    if guild_id == SHATTERS_DISCORD_ID:
+      if d_code == SHATTERS_DNAME:
+        print(f'[ADD_RUNS]: Adding Shatters runs to {[u.display_name for u in users]}')
+        sql = f"update users set runs = runs + 1 where id in ({', '.join(user_ids)});"
+        print(f"-- {sql}")
+        cursor.execute(sql)
+      else:
+        print(f'[ADD_RUNS]: Adding event runs for {[u.display_name for u in users]}')
+        sql = f"update users set eventruns = eventruns + 1 where id in ({', '.join(user_ids)});"
+        print(f"-- {sql}")
+        cursor.execute(sql)
     
-    bot.db_connections[guild_id].commit()
-    return
+      bot.db_connections[guild_id].commit()
+
+  try:
+    do_update()
+    return True
+  except mysql.connector.errors.OperationalError as e:
+    bot.log(f"RUNLOG OP ERROR: {e.msg}")
+    bot.log(f"Restarting connections...")
+    close_connections(bot)
+    setup_dbs(bot)
+    try:
+      do_update()
+      return True
+    except mysql.connector.errors.OperationalError as e:
+      bot.log(f"RUNLOG OP ERROR: {e.msg}")
+      bot.log('Original restart failed!!!')
+      return False
 
   column = d_code if d_code in TRACKED_DUNGEONS else EVENTS_COL_NAME
   print(f'[ADD_RUNS]: Adding 1 {column} to {[u.display_name for u in users]}')
@@ -93,16 +113,57 @@ def get_run_stats(bot, guild_id, user_id) -> Tuple[int, ...]:
   # the [1:] chops off the ID column
   return res[1:] if res else None
 
+def get_vetban(bot: commands.Bot, guild_id: int, user_id: int) -> Tuple[int, bool, str, int, datetime]:
+  if guild_id != SHATTERS_DISCORD_ID:
+    return None
+  
+  cursor = bot.db_connections[guild_id].cursor()
+
+  cursor.execute(f"select * from vetbans where id = {user_id}")
+
 def close_connections(bot):
   for con in bot.db_connections:
     bot.db_connections[con].close()
 
 import re
+async def claw_fn(channel: discord.TextChannel, look_for, from_user, since_date: datetime):
+  await channel.send(f"since_date {since_date}")
+
+  if look_for == 'AFK':
+    found = []
+    for msg in channel.history(limit=None, after=since_date):
+      msg: discord.Message = msg
+      if msg.author.id == from_user.id:
+        if len(msg.embeds) > 0:
+          if msg.embeds[0].description is not None and re.search(look_for, msg.embeds[0].description):
+            found.append(msg)
+
+    return found
+
 STATS_MSG_LEN = len(';stats')
 class TrackingCog(commands.Cog):
   def __init__(self, bot: commands.Bot):
     self.bot = bot
-    
+
+  #@commands.has_any_role(*get_manager_roles())
+  #@commands.command(name='claw')  
+  async def claw(self, ctx: commands.Context, type):
+    """[Manager+] Runs through a channel looking for specific messages.
+
+    Things to claw for:
+     - "afk": Searches for AFK check panels from either ShattsBot (this bot) or ViBot.
+    """
+    if type.lower() == 'afk':
+      since_date = datetime.now()
+      since_date = since_date.replace(month=(since_date.month-3)%11, year=(since_date.year - 1 if since_date.month < 3 else since_date.year))
+
+      msg = await ctx.send(embed=discord.Embed("Searching for ended AFK checks..."))
+
+      found = await claw_fn(ctx.channel, "AFK", self.bot.user, since_date)
+      
+      embed = discord.Embed()
+    pass
+
   @commands.Cog.listener()
   async def on_message(self, message: discord.Message):
     if message.author.bot or message.guild is None:

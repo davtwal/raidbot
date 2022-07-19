@@ -1,4 +1,4 @@
-from globalvars import get_admin_roles, ROLES
+from globalvars import get_admin_roles, ROLES, get_event_roles, get_helper_roles, get_manager_roles, get_raid_roles, get_security_roles, get_vetcontrol_roles, get_veteran_roles
 import shattersbot as sb
 #from globalvars import find_channel
 
@@ -58,7 +58,17 @@ class AdminCmds(commands.Cog):
                   +  f'Vet Role: {self.bot.get_vetraider_role(ctx.guild.id)}\n'
                   +  f'Raidstream Role: {self.bot.get_raidstream_role(ctx.guild.id)}\n'
                   +  f'Nitro Role: {self.bot.get_nitro_role(ctx.guild.id)}\n'
-                  +  f'Early Roles: {self.bot.get_early_roles(ctx.guild.id)}\n')
+                  +  f'Early Roles: {self.bot.get_early_roles(ctx.guild.id)}\n',
+                  embed=discord.Embed(description=f"""
+                  T0: {get_admin_roles()}
+                  T1: {get_manager_roles()}
+                  T2a: {get_veteran_roles()}
+                  T2b: {get_raid_roles()}
+                  T2c: {get_event_roles()}
+                  T3a: {get_helper_roles()}
+                  T3b: {get_vetcontrol_roles()}
+                  T3c: {get_security_roles()}
+                  """))
     
     elif mainarg == 'sections':
       await ctx.send(f'```{self.bot.gdict[ctx.guild.id][sb.GDICT_SECTIONS].keys()}```')

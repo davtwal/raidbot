@@ -18,6 +18,7 @@ DATABASE_FNAME = "database.json"
 GDICT_RAIDSTREAM_ROLE = 'raidstream'
 GDICT_RAIDER_ROLE = 'raiderrole'
 GDICT_VETRAIDER_ROLE = 'vetrole'
+GDICT_VETBANNED_ROLE = 'bannedvetrole'
 GDICT_NITRO_ROLE = 'nitro'
 GDICT_EARLY_ROLES = 'earlies'
 GDICT_SUSPROOF_CH = 'susproof'
@@ -38,6 +39,7 @@ DEFAULT_GUILD_DICT = {
   GDICT_RAIDSTREAM_ROLE: '',
   GDICT_RAIDER_ROLE: '',
   GDICT_VETRAIDER_ROLE: '',
+  GDICT_VETBANNED_ROLE: '',
   GDICT_NITRO_ROLE: '',
   GDICT_EARLY_ROLES: [],
   GDICT_SUSPROOF_CH: 0,
@@ -146,8 +148,9 @@ class ShattersBot(commands.Bot):
     self.log('--------------------BOOT UP--------------------')
     self.log(f'Bot logged in: {self.user} (ID {self.user.id})')
     self.log('-----------------------------------------------')
-    #super().activity = discord.Game(name='shamters')
     
+    self.startup_time = datetime.now()
+
     manager_setups: Dict[int, List[str]] = {}
 
     self.update_dict()
@@ -167,22 +170,25 @@ class ShattersBot(commands.Bot):
   def is_debug(self) -> bool:
     return self.debugmode
 
-  def get_raidstream_role(self, guild_id) -> str:
+  def get_raidstream_role(self, guild_id) -> int:
     return self.gdict[guild_id][GDICT_RAIDSTREAM_ROLE]
 
-  def get_raider_role(self, guild_id) -> str:
+  def get_raider_role(self, guild_id) -> int:
     return self.gdict[guild_id][GDICT_RAIDER_ROLE]
 
-  def get_vetraider_role(self, guild_id) -> str:
+  def get_vetraider_role(self, guild_id) -> int:
     return self.gdict[guild_id][GDICT_VETRAIDER_ROLE]
 
-  def get_nitro_role(self, guild_id) -> str:
+  def get_vetbanned_role(self, guild_id) -> int:
+    return self.gdict[guild_id][GDICT_VETBANNED_ROLE]
+
+  def get_nitro_role(self, guild_id) -> int:
     return self.gdict[guild_id][GDICT_NITRO_ROLE]
 
   def get_early_roles(self, guild_id) -> List[str]:
     return self.gdict[guild_id][GDICT_EARLY_ROLES]
 
-  def get_susproof_channel(self, guild_id) -> str:
+  def get_susproof_channel(self, guild_id) -> int:
     return self.gdict[guild_id][GDICT_SUSPROOF_CH]
 
   def get_deafcheck_warntime(self, guild_id) -> int:

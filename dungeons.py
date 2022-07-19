@@ -32,7 +32,8 @@ class Dungeon:
                primary_reacts:List[int]=None,
                secondary_reacts:List[int]=None,
                max_keys:int=0,
-               images:List[str]=None):
+               images:List[str]=None,
+               auto_close=True):
     assert portal_reacts is not None
     assert key_reacts is not None
     self.code = None
@@ -44,6 +45,7 @@ class Dungeon:
     self.react_secondary = secondary_reacts
     self.max_keys = max_keys
     self.images = images
+    self.auto_close = auto_close
   
   def _build_portal_emoji(self, bot):
     portal = bot.get_emoji(self.react_portals[0])
@@ -313,7 +315,7 @@ dungeonlist: Dict[str, Dict[str, Dungeon]] = {
     HARDSHATTS_DNAME: Dungeon('Hard Shatters', [924809116755587112], [924723993070682202], {R_FUNGAL: [2, 'Supreme Priest'], R_TRICKSTER: [2, None]}, [R_SWITCHRUSH, R_MSEAL, R_CSHIELD, R_SLOW], standard_buffs, 2, shatts_hardmode_images),
     CULT_DNAME: Dungeon('Cultist Hideout',  [924711683308519515], [924723992621903883], {R_RUSH: [2, None]}, [R_DAZE, R_TRICKSTER], [R_FUNGAL, R_MSEAL] + standard_buffs),
     VOID_DNAME: VoidDungeon('Void',         [924711683161739324], [924723992621903883, 924723993808887849], None, [R_FUNGAL, R_MSEAL], standard_buffs),
-    OSANC_DNAME: SanctuaryDungeon('Oryx\'s Sanctuary', [924728919465267232], [924728746785775706, 924723993272004649, 924723992730927157, 924723993079074947], None, [R_TRICKSTER, R_FUNGAL], [R_MSEAL, R_MYSTIC] + standard_buffs)
+    OSANC_DNAME: SanctuaryDungeon('Oryx\'s Sanctuary', [924728919465267232], [924728746785775706, 924723993272004649, 924723992730927157, 924723993079074947], None, [R_TRICKSTER, R_FUNGAL], [R_MSEAL, R_MYSTIC] + standard_buffs, 2, auto_close=False)
   },
   'Court': {
     'shaitan': Dungeon('Lair of Shaitain',        [924745735910604820], [924744714425602078], None, [R_MSEAL], standard_buffs),
@@ -327,7 +329,8 @@ dungeonlist: Dict[str, Dict[str, Dungeon]] = {
     'bellas': Dungeon('Belladonna\'s Garden', [924745735969333258], [924746702202761256], None, None, standard_buffs),
     'icetomb': Dungeon('Ice Tomb',            [924745735797374976], [924746702534094848], None, [R_AETHER, R_STUN], buffs + dps_debuff + [R_TRICKSTER]),
     'mgm': Dungeon('Mad God Mayhem',          [924745735747014666], [924746702253068348], None, None, standard_buffs),
-    'rainbowroad': Dungeon('Raindbow Road',   [953383643231969350], [953383593953067128], None, None, standard_buffs)
+    'rainbowroad': Dungeon('Raindbow Road',   [953383643231969350], [953383593953067128], None, None, standard_buffs),
+    'random': Dungeon('Random',               [924101782714597408], [975504739091488778], None, None, standard_buffs)
   }
 }
 

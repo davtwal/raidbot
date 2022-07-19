@@ -190,21 +190,36 @@ class SectionAFKCheckManager:
           info_embed.set_footer(text=f'Run started at {afk.afk_embed.timestamp}')
           
           key_list = [u.mention for u in afk._keys()]
-          early_list = [f"{u.mention}`{u.display_name}`" for u in afk.has_early_loc]
+          early_list = [f"{u.mention}" for u in afk.has_early_loc]
           drag_list = [f"<@{u}>" for u in afk.drag_raiders]
-          join_list = [f"{u.mention}`{u.display_name}`" for u in afk.joined_raiders]
-          raid_list = [f"{u.mention}`{u.display_name}`" for u in afk.voice_ch.members]
+          join_list = [f"{u.mention}" for u in afk.joined_raiders]
+          raid_list = [f"{u.mention}" for u in afk.voice_ch.members]
           info_embed.add_field(inline=False, name='Keys', value=f'{key_list if len(key_list) > 0 else "None"}')
           info_embed.add_field(inline=False, name='Early', value=f'{early_list if len(early_list) > 0 else "None"}')
           info_embed.add_field(inline=False, name='Dragged', value=f'{drag_list if len(drag_list) > 0 else "None"}')
-          info_embed.add_field(inline=False, name='Joined', value=f'{join_list if len(join_list) > 0 else "None"}')
-          info_embed.add_field(inline=False, name='Raiders', value=f'{raid_list if len(raid_list) > 0 else "None"}')
           
+          if len(join_list) > 25 or len(raid_list) > 25:
+            info_embed.add_field(inline=False, name='Joined 1', value=f'{join_list[:25]}')
+            info_embed.add_field(inline=False, name='Joined 2', value=f'{join_list[25:]}')
+            info_embed.add_field(inline=False, name='Raiders 1', value=f'{raid_list[:25]}')
+            info_embed.add_field(inline=False, name='Raiders 2', value=f'{raid_list[25:]}')
+          else:
+            info_embed.add_field(inline=False, name='Joined', value=f'{join_list if len(join_list) > 0 else "None"}')
+            info_embed.add_field(inline=False, name='Raiders', value=f'{raid_list if len(raid_list) > 0 else "None"}')
+          
+          for f in info_embed.fields:
+            if len(str(f.value)) > 1024:
+              f.value = "[[field to large to display]]"
+
           try:
             await info_ch.send(f'AFK Check: https://discord.com/channels/{self.guild.id}/{afk.ctx.channel.id}/{afk.panel_msg.id}',embed=info_embed)
             self._log(f'Run logged.')
-          except:
-            self._log(f'Unable to log run.')
+          except discord.errors.HTTPException as err:
+            self._log(f'Unable to log run (HTTP Error): {err}')
+          except discord.errors.Forbidden as err:
+            self._log(f'Unable to log run (Forbidden): {err}')
+          except discord.errors.InvalidArgument as err:
+            self._log(f'Unable to log run (Invalid Arg): {err}')
 
         else:
           self._log(f'Info is not text: {info_ch.type}')

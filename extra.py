@@ -152,7 +152,7 @@ class ExtraCmds(commands.Cog, name='Extra Commands'):
     if len(move_awaits) > 0:
       try:
         await asyncio.wait(move_awaits)
-      except discord.HTTPException:
+      except: # dont care if anything failed
         pass
     await ctx.send("Finished cleaning.")
     pass
@@ -206,10 +206,11 @@ class ExtraCmds(commands.Cog, name='Extra Commands'):
       await msg.add_reaction(emoji)
 
   @commands.Cog.listener()
-  async def on_voice_state_update(self, member: discord.Member, before, after):
-    member_rsrole = member.get_role(self.bot.get_raidstream_role(member.guild.id))
-    if member_rsrole is not None:
-      await member.remove_roles(member_rsrole)
+  async def on_voice_state_update(self, member: discord.Member, before, after: discord.VoiceState):
+    if after.channel is None or after.channel.id != before.channel.id:
+      member_rsrole = member.get_role(self.bot.get_raidstream_role(member.guild.id))
+      if member_rsrole is not None:
+        await member.remove_roles(member_rsrole)
       
   @commands.command(name='allowstream')
   @commands.has_any_role(*get_event_roles())

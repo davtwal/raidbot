@@ -1,4 +1,5 @@
 import asyncio
+from http.client import HTTPException
 from random import randint, random
 from typing import Optional, List, Dict, Union
 from datetime import datetime
@@ -67,6 +68,7 @@ class AFKCheck:
     self.voice_ch = voice_ch
     self.dungeon = dungeon
     self.location = location
+    self.timer = None
     
     self.status = self.STATUS_CLOSED
     
@@ -78,6 +80,7 @@ class AFKCheck:
     # Key poppers is a list of Members who have reacted with a Key button and confirmed.
     # Because there can be multiple key buttons, this is separate from the button reacts.
     self.key_poppers: List[discord.Member] = []
+    self.key_pop_count: List[int] = [0 for _ in self.reacts_key]
 
     # Keeps track of everyone who clicked a button.
     self.button_reacts: Dict[int, List[discord.Member]] = {}
@@ -100,7 +103,7 @@ class AFKCheck:
       self.manager._log(f'[afk:{self.owner().display_name}] {logstr}')
 
   def _accepting_joins(self):
-    return self.status == self.STATUS_OPEN or self.status == self.STATUS_POST or self.status == self.STATUS_OPENING
+    return self.status == self.STATUS_OPEN or self.status == self.STATUS_POST #or self.status == self.STATUS_OPENING
 
   def _keys(self):
     l = []
@@ -172,14 +175,18 @@ class AFKCheck:
     # Create views
     if lazy:
       self.timer = asyncio.create_task(self._timer(AFK_AUTO_OPEN_TIMER, AFK_TIMER_INTERVAL, lazy))
+      footer_text = self.AFK_FOOTER_AUTO_OPEN.format(f'{int(AFK_AUTO_OPEN_TIMER / 60)} minutes')
       confirm_reacts = self.reacts_key + self.reacts_early + self.reacts_prim
       noconfirm_reacts = None
-      footer_text = self.AFK_FOOTER_AUTO_OPEN.format(f'{int(AFK_AUTO_OPEN_TIMER / 60)} minutes')
     else:
-      self.timer = asyncio.create_task(self._timer(AFK_AUTO_END_TIMER, AFK_TIMER_INTERVAL, lazy))
+      if self.dungeon.auto_close:
+        self.timer = asyncio.create_task(self._timer(AFK_AUTO_END_TIMER, AFK_TIMER_INTERVAL, lazy))
+        footer_text = self.AFK_FOOTER_AUTO_END.format(f'{int(AFK_AUTO_END_TIMER / 60)} minutes')
+      else:
+        footer_text = f"AFK Check by {self.owner().display_name}"
+      
       confirm_reacts = self.reacts_key + self.reacts_early
       noconfirm_reacts = self.reacts_prim
-      footer_text = self.AFK_FOOTER_AUTO_END.format(f'{int(AFK_AUTO_END_TIMER / 60)} minutes')
       await self._open_voice()
     
     # Create embeds    
@@ -189,7 +196,7 @@ class AFKCheck:
     self.afk_embed.set_footer(text=footer_text)
 
     if self.dungeon.images is not None:
-      self.afk_embed.set_image(url=self.dungeon.images[randint(0, len(self.dungeon.images) - 1)])
+      self.afk_embed.set_thumbnail(url=self.dungeon.images[randint(0, len(self.dungeon.images) - 1)])
     
     self.panel_embed = discord.Embed(description=self._build_afk_panel_desc(lazy))
     self.panel_embed.set_author(name='Control Panel', icon_url=self.owner().display_avatar.url)
@@ -289,7 +296,8 @@ class AFKCheck:
   async def open_channel(self):    
     self._log("Channel opening.")
     
-    self.timer.cancel()
+    if self.timer:
+      self.timer.cancel()
     
     self.panel_embed.description = self._build_afk_panel_desc(False)
     await self.panel_msg.edit(embed=self.panel_embed)
@@ -297,19 +305,19 @@ class AFKCheck:
     self.afk_embed.set_footer(text='AFK check opening...')
     await self.afk_msg.edit(embed=self.afk_embed)
     
-    self._log("Checking joined members...")
-    for member in self.joined_raiders:
-      drag_ch = self.manager.get_section_drag(self.voice_ch.id)
-      ids = [self.manager.get_section_lounge().id, drag_ch.id if drag_ch else None]
-      if member.voice and member.voice.channel and member.voice.channel.id in ids:
-        self._log(f"- {member.display_name} found and attempted to move.")
-        await self._move_in_user(member)
-      else:
-        self._log(f"- {member.display_name} not found.")
+    #self._log("Checking joined members...")
+    #for member in self.joined_raiders:
+      #drag_ch = self.manager.get_section_drag(self.voice_ch.id)
+      #ids = [self.manager.get_section_lounge().id, drag_ch.id if drag_ch else None]
+      #if member.voice and member.voice.channel and member.voice.channel.id in ids:
+        #self._log(f"- {member.display_name} found and attempted to move.")
+        #await self._move_in_user(member)
+      #else:
+        #self._log(f"- {member.display_name} not found.")
     
     self.status = self.STATUS_OPENING
     
-    opening_embed = discord.Embed(description='Click Join now to get moved in!')
+    opening_embed = discord.Embed(description='Be prepared to join!')
     opening_embed.set_author(name='Channel Opening in', icon_url=self.owner().display_avatar.url)
     opening_msg = await self.status_ch.send(content='Channel opening!', embed=opening_embed)
     
@@ -321,7 +329,11 @@ class AFKCheck:
     self._log("Channel open.")
     await self._open_voice()
     
-    self.timer = asyncio.create_task(self._timer(AFK_AUTO_END_TIMER_LAZY, AFK_TIMER_INTERVAL, False))
+    if self.dungeon.auto_close:
+      self.timer = asyncio.create_task(self._timer(AFK_AUTO_END_TIMER_LAZY, AFK_TIMER_INTERVAL, False))
+      self.afk_embed.set_footer(text=self.AFK_FOOTER_AUTO_END.format(f'{int(AFK_AUTO_END_TIMER_LAZY / 60)} minutes'))
+    else:
+      self.afk_embed.set_footer(text=f"AFK Check by {self.owner().display_name}")
     
     opening_embed._author['name'] = 'Channel opened!'
     await opening_msg.edit(embed=opening_embed)
@@ -329,7 +341,6 @@ class AFKCheck:
     
     self.afk_view.change_to_noconfirm(self.reacts_prim)
     self.afk_embed.description = self._build_afk_desc(False)
-    self.afk_embed.set_footer(text=self.AFK_FOOTER_AUTO_END.format(f'{int(AFK_AUTO_END_TIMER_LAZY / 60)} minutes'))
     self.afk_embed.timestamp = datetime.now()
     await self.afk_msg.edit(embed=self.afk_embed, view=self.afk_view)
     pass
@@ -385,7 +396,7 @@ class AFKCheck:
     # update messages
     self.panel_embed.description = 'This AFK check has ended.'
     await self.afk_msg.edit(content='This AFK has ended.', embed=self.afk_embed, view=None)
-    await self.panel_msg.edit(embed=self.panel_embed)
+    await self.panel_msg.edit(embed=self.panel_embed, view=None)
     
     await self.manager.remove_afk(self.owner().id, report=self.dungeon.code == dungeons.SHATTERS_DNAME or self.dungeon.code == dungeons.HARDSHATTS_DNAME)
 
@@ -397,7 +408,8 @@ class AFKCheck:
     self._log("End AFK check, close channel")
     self.status = self.STATUS_POST
     await self._close_voice()
-    self.timer.cancel()
+    if self.timer:
+      self.timer.cancel()
     
     # Move out everyone that didn't click join, is not a staff member, and isn't a bot.
     staff_roles = get_staff_roles()
@@ -419,7 +431,7 @@ class AFKCheck:
           if member.voice and member.voice.channel and member.voice.channel.id == self.voice_ch.id:
             try:
               await member.move_to(lounge_ch, reason='Did not click Join.')
-            except:
+            except HTTPException:
               pass
         except:
           pass
@@ -442,7 +454,8 @@ class AFKCheck:
   async def close(self):
     self._log("Close afk")
     self.afk_embed.set_field_at(0, name='Reacts', value=self._build_afk_list_react_text())
-    self.timer.cancel()
+    if self.timer:
+      self.timer.cancel()
     await self._close_voice()
     await self._end_afk()
     pass
@@ -450,7 +463,8 @@ class AFKCheck:
   async def abort(self):
     self.status = self.STATUS_ENDED
     self._log("Aborted")
-    self.timer.cancel()
+    if self.timer:
+      self.timer.cancel()
     await self._close_voice()
 
     self.afk_embed.description = self.AFK_ABORTED_TEXT
@@ -476,6 +490,7 @@ class AFKCheck:
   MOVE_NOT_IN_VOICE = 1 # The user was not in a voice channel.
   MOVE_ALREADY_IN = 2   # The user was already in the correct voice channel.
   MOVE_CAPPED = 3       # The destination channel was at its cap, and force was False.
+  MOVE_ERROR = 4        # A seperate error occurred.
   async def _move_in_user(self, user: discord.Member, force:bool=False):
     if user.voice and user.voice.channel:
       if user.voice.channel.id != self.voice_ch.id:
@@ -483,7 +498,9 @@ class AFKCheck:
           try:
             await user.move_to(self.voice_ch)
             return self.MOVE_SUCCESS
-          except discord.errors.HTTPException:
+          except HTTPException:
+            return self.MOVE_NOT_IN_VOICE
+          except discord.errors.NotFound:
             return self.MOVE_NOT_IN_VOICE
 
         return self.MOVE_CAPPED
@@ -550,8 +567,13 @@ class AFKCheck:
     # The only things that can be returned in this if/else are errors.
     if confirmed is True:
       if react_emoji in self.reacts_key:
-        if self.dungeon.max_keys == 0 or len(self.key_poppers) < self.dungeon.max_keys:
+        try:
+          index = self.reacts_key.index(react_emoji)
+        except ValueError:
+          return self.ACK_BUTTON_CAPPED
+        if self.dungeon.max_keys == 0 or self.key_pop_count[index] < self.dungeon.max_keys:
           self.key_poppers.append(user)
+          self.key_pop_count[index] += 1
           self._log(f'Key #{len(self.key_poppers)} accepted. (Max {self.dungeon.max_keys})')
         else:
           self._log(f'Key denied. (Max of {self.dungeon.max_keys} reached)')

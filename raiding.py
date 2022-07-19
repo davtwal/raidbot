@@ -456,7 +456,7 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
           userid = int(transferTo[3:-1])
           dest_user = ctx.guild.get_member(userid)
           if dest_user is None or dest_user.id == ctx.author.id or dest_user.bot:
-            if dest_user.id == self.bot.user.id:
+            if dest_user is not None and dest_user.id == self.bot.user.id:
               await ctx.send("Lol no 😂")
             else:
               await ctx.send("Invalid user.")

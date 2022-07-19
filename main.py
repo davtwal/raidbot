@@ -17,6 +17,7 @@ from admin import AdminCmds
 from errorhandler import ErrorHandling
 #from tracking import TrackingCog
 from shattersbot import ShattersBot
+from security import SecurityCog
 
 import random
 import re
@@ -119,5 +120,6 @@ bot.add_cog(ExtraCmds(bot))
 bot.add_cog(RaidingCmds(bot))
 #bot.add_cog(TrackingCog(bot))
 bot.add_cog(RunsWhenCog(bot))
+bot.add_cog(SecurityCog(bot))
 
 bot.run(DISCORD_TOKEN)

@@ -37,16 +37,28 @@ Example: \"raiderMan\" => \"[raiderMan]\""""
 # Type 3: Security / Management.
 #      3a: Helpers. Can warn and suspend. 
 #      3b: Vet Control. Can warn, suspend, and vetban. 
-#      3b: Security. Can verify (all kinds) and blacklist from Mod-Mail.
-#      3c: Officers. Can purge, lockdown, and change log.
+#      3c: Security. Can verify (all kinds) and blacklist from Mod-Mail.
+# Type 4: Other Staff
+
+ROLES = [
+  ['Developer', 'Admin', 'Administrator', 'Moderator', 'Owner'], # Type 0
+  ['Head Raid Leader', 'Officer'], # Type 1
+  ['Veteran Raid Leader', 'Veteran Event Leader'], # Type 2a
+  ['Almost Raid Leader', 'Raid Leader'], # Type 2b
+  ['Event Raid Leader'], # Type 2c
+  ['Helper', 'Almost Raid Leader', 'Raid Leader'], # Type 3a
+  ['Veteran Raid Leader', 'Veteran Event Leader'], # Type 3b
+  ['Security', 'Verifier'], # Type 3c
+  ['Trial Raid Leader'] # Type 4
+]
 
          #Shatters                                                  #Fungal           #Dungeoneer
-ROLES = [['Trial Raid Leader', 'Verifier', 'Security', 'Officer',   'Helper',         'Trial Leader'],
-         ['Event Raid Leader',                                      'Event Master',   'Event Leader'],
-         ['Almost Raid Leader', 'Raid Leader',                                        'Oryx Leader', 'Almost Oryx Leader', 'Shatters Leader', 'Almost Shatters Leader', 'Void Leader', 'Almost Void Leader'],
-         ['Veteran Raid Leader', 'Veteran Event Leader'],
-         ['Head Raid Leader'],
-         ['Developer', 'Admin', 'Owner',                            'Moderator',      'Administrator']]
+#ROLES = [['Trial Raid Leader', 'Verifier', 'Security', 'Officer',   'Helper',         'Trial Leader'],
+#         ['Event Raid Leader',                                      'Event Master',   'Event Leader'],
+#         ['Almost Raid Leader', 'Raid Leader',                                        'Oryx Leader', 'Almost Oryx Leader', 'Shatters Leader', 'Almost Shatters Leader', 'Void Leader', 'Almost Void Leader'],
+#         ['Veteran Raid Leader', 'Veteran Event Leader'],
+#         ['Head Raid Leader'],
+#         ['Developer', 'Admin', 'Owner',                            'Moderator',      'Administrator']]
 
 # Dungeon Role Whitelist
 # 'dungeon_role_whitelist': {'<dung_code>': [role_id0, role_id1...]}
@@ -56,25 +68,35 @@ ROLES = [['Trial Raid Leader', 'Verifier', 'Security', 'Officer',   'Helper',   
 # 'shatters': ['Almost Shatters Leader', 'Shatters Leader']
 # This has not been implemented yet.
 
-
-
 def get_admin_roles() -> List[str]:
-  return ROLES[-1]
+  return ROLES[0]
 
 def get_manager_roles() -> List[str]:
-  return ROLES[-2] + get_admin_roles()
+  return ROLES[1] + get_admin_roles()
 
 def get_veteran_roles() -> List[str]:
-  return ROLES[-3] + get_manager_roles()
+  return ROLES[2] + get_manager_roles()
 
 def get_raid_roles() -> List[str]:
-  return ROLES[2] + get_veteran_roles()
+  return ROLES[3] + get_manager_roles()
 
 def get_event_roles() -> List[str]:
-  return ROLES[1] + get_raid_roles()
+  return ROLES[4] + get_raid_roles()
+
+def get_security_roles() -> List[str]:
+  return ROLES[7] + get_manager_roles()
+
+def get_vetcontrol_roles() -> List[str]:
+  return ROLES[6] + get_security_roles()
+
+def get_helper_roles() -> List[str]:
+  return ROLES[5] + get_vetcontrol_roles()
 
 def get_staff_roles() -> List[str]:
-  return ROLES[0] + get_event_roles()
+  x = []
+  for i in range(0, len(ROLES)):
+    x += ROLES[i]
+  return x
 
 bot_debugmode = False
 
@@ -84,12 +106,6 @@ bot_debugmode = False
 
 #def can_do_dungeon(guild_id, dungeon_code, ) -> bool:
 #  pass
-
-def get_role_tier(role) -> int:
-  for i in range(len(ROLES)):
-    if role in ROLES[i]:
-      return i
-  return -1
 
 class RaidingSection:
   def __init__(self, name:str, input_dict:dict):    
@@ -221,9 +237,27 @@ class RaidingSection:
     return self.__str__()
   
   def role_check(self, user_roles: List[discord.Role]):
+    """Checks to see if the user can put up runs in this section.
+    """
     # n^2 :dead:
+
+    vet_req = not self.is_vet
+    whitelist_role = self.whitelist is None
+    has_rl_role = False
+
     for role in user_roles:
-      if get_role_tier(role.name) >= self.min_role_tier:
+      if not vet_req and role.name in get_veteran_roles():
+        vet_req = True
+        has_rl_role = True
+
+      if not whitelist_role and role.name in get_raid_roles():
+        whitelist_role = True
+        has_rl_role = True
+
+      if not has_rl_role and role.name in get_event_roles():
+        has_rl_role = True
+
+      if vet_req and whitelist_role and has_rl_role:
         return True
     return False
   
