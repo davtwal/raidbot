@@ -132,8 +132,8 @@ class ShattersBot(commands.Bot):
     self.log("Finshed setting up raid managers.")
     pass
 
-  async def setup_dbs(self):
-    pass
+  #async def setup_dbs(self):
+  #  pass
 
   ####################
   ## On-Ready

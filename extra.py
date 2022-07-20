@@ -207,7 +207,7 @@ class ExtraCmds(commands.Cog, name='Extra Commands'):
 
   @commands.Cog.listener()
   async def on_voice_state_update(self, member: discord.Member, before, after: discord.VoiceState):
-    if after.channel is None or after.channel.id != before.channel.id:
+    if after is None or after.channel is None or before is None or before.channel is None or after.channel.id != before.channel.id:
       member_rsrole = member.get_role(self.bot.get_raidstream_role(member.guild.id))
       if member_rsrole is not None:
         await member.remove_roles(member_rsrole)

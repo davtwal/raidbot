@@ -45,7 +45,7 @@ ROLES = [
   ['Head Raid Leader', 'Officer'], # Type 1
   ['Veteran Raid Leader', 'Veteran Event Leader'], # Type 2a
   ['Almost Raid Leader', 'Raid Leader'], # Type 2b
-  ['Event Raid Leader'], # Type 2c
+  ['Event Raid Leader', 'Security'], # Type 2c
   ['Helper', 'Almost Raid Leader', 'Raid Leader'], # Type 3a
   ['Veteran Raid Leader', 'Veteran Event Leader'], # Type 3b
   ['Security', 'Verifier'], # Type 3c

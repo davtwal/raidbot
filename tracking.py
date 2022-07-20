@@ -37,15 +37,18 @@ def setup_dbs(bot: commands.Bot):
   print('[SETUPDB]: Setting up databases.')
   for guild in bot.guilds:
     if guild.id == SHATTERS_DISCORD_ID:
-      bot.db_connections[guild.id] = mysql.connector.connect(
-        host = DB_HOSTNAME,
-        user = DB_USERNAME,
-        password = DB_PASSWORD,
-        port = int(DB_PORT),
-        database = "shatters"
-      )
+      try:
+        bot.db_connections[guild.id] = mysql.connector.connect(
+          host = DB_HOSTNAME,
+          user = DB_USERNAME,
+          password = DB_PASSWORD,
+          port = int(DB_PORT),
+          database = "shatters"
+        )
 
-      bot.log(f'[SETUPDB]: {guild.name} SHATTERS: {bot.db_connections[guild.id]}')
+        bot.log(f'[SETUPDB]: {guild.name} SHATTERS: {bot.db_connections[guild.id]}')
+      except mysql.connector.errors.DatabaseError:
+        bot.log(f'[SETUPDB]: [[ERROR]] Unable to connect to vibot database! Maybe bot is down?')
       pass
     else:
       bot.log(f'[SETUPDB]: {guild.name} setup as {guild.name.lower()}.db')
