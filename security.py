@@ -126,7 +126,7 @@ class SecurityCog(commands.Cog, name="Security Commands"):
   @commands.has_any_role(*get_staff_roles())
   async def cmd_find_user(self, ctx: commands.Context, name=None):
     """
-    Searches for a user.
+    [ERL+] Searches for a user.
     Can be user ID, descriminator (e.g. achoo#8888), or IGN.
     IGNs are formatted like the following:
       (prefix)NameA | NameB | NameC
@@ -210,7 +210,7 @@ class SecurityCog(commands.Cog, name="Security Commands"):
   @commands.command(name="vetban")
   @commands.has_any_role(*get_vetcontrol_roles())
   async def cmd_vetban(self, ctx: commands.Context, id_or_name=None, time_count=None, time_type=None, *reason_args):
-    """[VRL/VERL+ & SEC+] Removes "Veteran Raider" and gives "Banned Veteran Raider" for the specified duration.
+    """[VRL/VERL+ & HELPER+] Removes "Veteran Raider" and gives "Banned Veteran Raider" for the specified duration.
 
     Args:
       id_or_name (int or str): The ID or name (IGN, no prefixes) of the person to vetban.
@@ -318,7 +318,7 @@ class SecurityCog(commands.Cog, name="Security Commands"):
   @commands.command('unvetban')
   @commands.has_any_role(*get_vetcontrol_roles())
   async def cmd_unvetban(self, ctx: commands.Context, id_or_name=None):
-    """[VRL/VERL+ & SEC+] Un-vetbans someone.
+    """[VRL/VERL+ & HELPER+] Un-vetbans someone.
 
     Args:
       id_or_name (int or str): The ID or name (IGN, no prefixes) of the person to unvetban.

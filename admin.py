@@ -9,7 +9,7 @@ import shattersbot as sb
 # Actual cog
 import asyncio
 
-class AdminCmds(commands.Cog):
+class AdminCmds(commands.Cog, name="Admin Commands"):
   def __init__(self, bot: sb.ShattersBot):
     self.bot = bot
   

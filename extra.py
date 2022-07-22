@@ -108,6 +108,7 @@ class ExtraCmds(commands.Cog, name='Extra Commands'):
   
   @commands.command(name='patience')
   async def give_patience(self, ctx: commands.Context):
+    """[ALL] Shows the patience gif made by Justin"""
     await ctx.message.delete()
     await ctx.send("https://media.discordapp.net/attachments/451181425115398184/897237811168690316/Shatters_Patience_DirectionsV1.1.gif?width=374&height=375")
   
@@ -160,7 +161,7 @@ class ExtraCmds(commands.Cog, name='Extra Commands'):
   @commands.command(name='trl')
   @commands.has_any_role(*get_manager_roles())
   async def trl_vote(self, ctx, *nameparts):
-    """[Manager+] Starts a TRL to ARL vote.
+    """[HRL/OFFICER+] Starts a TRL to ARL vote.
 
     Args:
         name (str): The text to put within the embed (typically a name).
@@ -183,7 +184,7 @@ class ExtraCmds(commands.Cog, name='Extra Commands'):
   @commands.command(name='arl')
   @commands.has_any_role(*get_manager_roles())
   async def arl_vote(self, ctx, *nameparts):
-    """[Manager+] Starts an ARL to RL vote.
+    """[HRL/OFFICER+] Starts an ARL to RL vote.
 
     Args:
         name (str): The text to put within the embed (typically a name).
@@ -256,7 +257,7 @@ class ExtraCmds(commands.Cog, name='Extra Commands'):
   @commands.command(name='countrole')
   @commands.has_any_role(*get_veteran_roles())
   async def countrole(self, ctx: commands.Context, *id_or_nameparts):
-    """[Vet RL+] Counts the number of people who have a role. Arguments can either be a single role ID (integer), or a role name.
+    """[VRL/VERL+] Counts the number of people who have a role. Arguments can either be a single role ID (integer), or a role name.
     Some roles have aliases:
       Vet -> Veteran Raider
       Sec -> Security
@@ -265,7 +266,7 @@ class ExtraCmds(commands.Cog, name='Extra Commands'):
       ARL -> Almost Raid Leader
       RL -> Raid Leader
       VRL -> Veteran Raid Leader
-      VERL -> Veteran Event Raid Leader
+      VERL / VEL -> Veteran Event Leader
       HRL -> Head Raid Leader
     """
 
@@ -293,7 +294,8 @@ class ExtraCmds(commands.Cog, name='Extra Commands'):
         'arl': 'Almost Raid Leader',
         'rl': 'Raid Leader',
         'vrl': 'Veteran Raid Leader',
-        'verl': 'Veteran Event Raid Leader',
+        'vel': 'Veteran Event Leader',
+        'verl': 'Veteran Event Leader',
         'hrl': 'Head Raid Leader',
         'vet': 'Veteran Raider'
       }
