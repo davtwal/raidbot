@@ -47,7 +47,9 @@ def user_search(name:str, guild: discord.Guild) -> Tuple[Optional[discord.Member
 
 def convert_time(time_count, time_type) -> int:
   time_type = time_type.lower()
-  if time_type == 'w' or time_type == 'weeks' or time_type == 'week':
+  if time_type == 'y' or time_type == 'years' or time_type == 'year':
+    timescale = 365 * 52 * 7 * 24 * 60 * 60
+  elif time_type == 'w' or time_type == 'weeks' or time_type == 'week':
     timescale = 60 * 60 * 24 * 7
   elif time_type == 'd' or time_type == 'days' or time_type == 'day':
     timescale = 60 * 60 * 24
@@ -87,8 +89,9 @@ class SecurityCog(commands.Cog, name="Security Commands"):
       return
 
     try:
-      await user.add_roles(veteran_role, reason=f"Vet ban expired.")
-      await user.remove_roles(banned_vet_role, reason=f"Vet ban expired.")
+      if banned_vet_role in user.roles:
+        await user.add_roles(veteran_role, reason=f"Vet ban expired.")
+        await user.remove_roles(banned_vet_role, reason=f"Vet ban expired.")
     except discord.Forbidden:
       self.bot.log(f"[SEC] Auto unvetban for {user_id} in {guild_id} failed due to perms.")
       return
@@ -374,8 +377,9 @@ class SecurityCog(commands.Cog, name="Security Commands"):
         return
 
     try:
-      await user.add_roles(veteran_role, reason=f"Unvetbanned by {ctx.author.display_name}")
-      await user.remove_roles(banned_vet_role, reason=f"Unvetbanned by {ctx.author.display_name}")
+      if banned_vet_role in user.roles:
+        await user.add_roles(veteran_role, reason=f"Unvetbanned by {ctx.author.display_name}")
+        await user.remove_roles(banned_vet_role, reason=f"Unvetbanned by {ctx.author.display_name}")
     except discord.Forbidden:
       await ctx.send("Forbidden error :/")
       return
