@@ -1,7 +1,8 @@
-from datetime import datetime
+from datetime import datetime, timedelta
+import time
 import sqlite3
 from sqlite3 import Connection
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Union, Optional
 
 import os
 
@@ -33,89 +34,6 @@ DB_SETUP_EXECUTES = [USER_RUNS_SCHEMA]
 
 SHATTERS_DISCORD_ID = 451171819672698920
 
-def setup_dbs(bot: commands.Bot):
-  print('[SETUPDB]: Setting up databases.')
-  for guild in bot.guilds:
-    if guild.id == SHATTERS_DISCORD_ID:
-      try:
-        bot.db_connections[guild.id] = mysql.connector.connect(
-          host = DB_HOSTNAME,
-          user = DB_USERNAME,
-          password = DB_PASSWORD,
-          port = int(DB_PORT),
-          database = "shatters"
-        )
-
-        bot.log(f'[SETUPDB]: {guild.name} SHATTERS: {bot.db_connections[guild.id]}')
-      except mysql.connector.errors.DatabaseError:
-        bot.log(f'[SETUPDB]: [[ERROR]] Unable to connect to vibot database! Maybe bot is down?')
-      pass
-    else:
-      bot.log(f'[SETUPDB]: {guild.name} setup as {guild.name.lower()}.db')
-      bot.db_connections[guild.id] = sqlite3.connect(f'{guild.name.lower()}.db')
-      for e in DB_SETUP_EXECUTES:
-        #print(f'[SETUPDB]: -- Executing {e}')
-        bot.db_connections[guild.id].execute(e)
-      bot.log('[SETUPDB]: -- Committing')
-      bot.db_connections[guild.id].commit()
-  pass
-
-def add_runs_done(bot, guild_id, d_code, users: List[discord.Member], leader: discord.Member):
-  def do_update():
-    cursor = bot.db_connections[guild_id].cursor()
-    user_ids = [str(user.id) for user in users]
-  
-
-
-    if guild_id == SHATTERS_DISCORD_ID:
-      if d_code == SHATTERS_DNAME:
-        print(f'[ADD_RUNS]: Adding Shatters runs to {[u.display_name for u in users]}')
-        sql = f"update users set runs = runs + 1 where id in ({', '.join(user_ids)});"
-        print(f"-- {sql}")
-        cursor.execute(sql)
-      else:
-        print(f'[ADD_RUNS]: Adding event runs for {[u.display_name for u in users]}')
-        sql = f"update users set eventruns = eventruns + 1 where id in ({', '.join(user_ids)});"
-        print(f"-- {sql}")
-        cursor.execute(sql)
-    
-      bot.db_connections[guild_id].commit()
-
-  try:
-    do_update()
-    return True
-  except mysql.connector.errors.OperationalError as e:
-    bot.log(f"RUNLOG OP ERROR: {e.msg}")
-    bot.log(f"Restarting connections...")
-    close_connections(bot)
-    setup_dbs(bot)
-    try:
-      do_update()
-      return True
-    except mysql.connector.errors.OperationalError as e:
-      bot.log(f"RUNLOG OP ERROR: {e.msg}")
-      bot.log('Original restart failed!!!')
-      return False
-
-  column = d_code if d_code in TRACKED_DUNGEONS else EVENTS_COL_NAME
-  print(f'[ADD_RUNS]: Adding 1 {column} to {[u.display_name for u in users]}')
-  
-  # add in all members that are part of the participant list
-  cursor.execute(f"insert or ignore into {RUN_TRACK_TABLE} ({ID_COL_NAME}) values ({'), ('.join(user_ids)});")
-  cursor.execute(f"update {RUN_TRACK_TABLE} set {column} = {column} + 1 where {ID_COL_NAME} in ({', '.join(user_ids)});")
-
-  # update leader's runs led for this type
-  cursor.execute(f"update {RUN_TRACK_TABLE} set {LEAD_PREFIX+column} = {LEAD_PREFIX+column} + 1 where {ID_COL_NAME} = {leader.id}")
-  bot.db_connections[guild_id].commit()
-  pass
-
-def get_run_stats(bot, guild_id, user_id) -> Tuple[int, ...]:
-  cursor = bot.db_connections[guild_id].execute(f"select * from {RUN_TRACK_TABLE} where {ID_COL_NAME} = {user_id}")
-  print('[GET_STATS]: Finding stats for {user_id}')
-  res = cursor.fetchone()
-  # the [1:] chops off the ID column
-  return res[1:] if res else None
-
 def get_vetban(bot: commands.Bot, guild_id: int, user_id: int) -> Tuple[int, bool, str, int, datetime]:
   if guild_id != SHATTERS_DISCORD_ID:
     return None
@@ -142,6 +60,288 @@ async def claw_fn(channel: discord.TextChannel, look_for, from_user, since_date:
             found.append(msg)
 
     return found
+
+class Tracker:
+  """Contains all database stuff."""
+  def __init__(self, bot):
+    self.bot = bot
+    self.cons: Dict[int, Union[mysql.connector.CMySQLConnection, sqlite3.Connection]] = {}
+    
+    self.open_connections()
+
+  ####################################
+  ####################################
+  #### CONNECTIONS
+  ####################################
+
+  def open_connections(self):
+    print('[SETUPDB]: Setting up databases.')
+    for guild in self.bot.guilds:
+      if guild.id == SHATTERS_DISCORD_ID:
+        try:
+          self.cons[guild.id] = mysql.connector.connect(
+            host = DB_HOSTNAME,
+            user = DB_USERNAME,
+            password = DB_PASSWORD,
+            port = int(DB_PORT),
+            database = "shatters"
+          )
+
+          self.bot.log(f'[SETUPDB]: {guild.name} SHATTERS: {self.cons[guild.id]}')
+        except mysql.connector.errors.DatabaseError:
+          self.bot.log(f'[SETUPDB]: [[ERROR]] Unable to connect to vibot database! Maybe bot is down?')
+        pass
+      else:
+        self.bot.log(f'[SETUPDB]: {guild.name} setup as {guild.name.lower()}.db')
+        self.cons[guild.id] = sqlite3.connect(f'{guild.name.lower()}.db')
+        for e in DB_SETUP_EXECUTES:
+          #print(f'[SETUPDB]: -- Executing {e}')
+          self.cons[guild.id].execute(e)
+        self.bot.log('[SETUPDB]: -- Committing')
+        self.cons[guild.id].commit()
+
+  def close_connections(self):
+    for gid in self.cons:
+      self.cons[gid].close()
+
+  ####################################
+  ####################################
+  #### HELPERS
+  ####################################
+
+  # The actual timestamps in the database are integers, but are multiplied by 1000
+  # For example, one of the timestamps in the db is 1669220959767
+  # If you were to convert this to a datetime, you'd get July 3rd, 54865!
+  # In reality, the last 3 digits are supposed to be decimal places, for 1669220959.767
+  # That gives us a more reasonable November 23, 2022
+  def _fix_ts(self, ts:int) -> float:
+    """Database compatible timestamp -> Python timestamp"""
+    return float(ts) / 1000
+
+  def _unfix_ts(self, ts:float) -> int:
+    """Python timestamp -> Database compatible timestamp"""
+    return int(ts * 1000)
+
+  def _dt_ts(self, dt:datetime) -> int:
+    """Datetime -> Database compatible timestamp"""
+    return int(self._unfix_ts(dt.timestamp()))
+
+  def _ts_dt(self, ts:int) -> datetime:
+    """Database compatible timestamp -> Datetime"""
+    return datetime.fromtimestamp(self._fix_ts(ts))
+
+  def _guildchecks(self, guild_id:int) -> Optional[str]:
+    guild = self.bot.get_guild(guild_id)
+    if guild is None:
+      return "Unable to get guild from bot."
+
+    if guild_id not in self.cons:
+      return "Guild ID has no database connection!"
+
+    if guild_id != SHATTERS_DISCORD_ID:
+      return "Server does not support vetbans."
+
+    return None
+
+  def _checks(self, user_id:int, guild_id:int) -> Optional[str]:
+    """
+    Does preliminary checks done by all database functions.
+    Params:
+      user_id: Integer ID of the user
+      guild_id: Integer ID of the guild
+    Returns: 
+      Tuple(User, Guild, Error String)
+    """
+    # 1: Make sure guild supports vetbans
+    guild = self.bot.get_guild(guild_id)
+    if guild is None:
+      return "Unable to get guild from bot."
+
+    if guild_id not in self.cons:
+      return "Guild ID has no database connection!"
+
+    if guild_id != SHATTERS_DISCORD_ID:
+      return "Server does not support vetbans."
+
+    # 2: Make sure user is in the guild
+    user = guild.get_member(user_id)
+    if user is None:
+      return "User is not in the guild."
+    
+    return None
+
+  ####################################
+  ####################################
+  #### RUN COUNTS
+  ####################################
+
+  def add_runs_done(self, guild_id, d_code, users: List[discord.Member], leader: discord.Member) -> bool:
+    def do_update():
+      cursor = self.cons[guild_id].cursor()
+      user_ids = [str(user.id) for user in users]
+
+      if guild_id == SHATTERS_DISCORD_ID:
+        if d_code == SHATTERS_DNAME:
+          print(f'[ADD_RUNS]: Adding Shatters runs to {[u.display_name for u in users]}')
+          cursor.execute(f"update users set runs = runs + 1 where id in ({', '.join(user_ids)});")
+        else:
+          print(f'[ADD_RUNS]: Adding event runs for {[u.display_name for u in users]}')
+          cursor.execute(f"update users set eventruns = eventruns + 1 where id in ({', '.join(user_ids)});")
+    
+        self.cons[guild_id].commit()
+
+    try:
+      do_update()
+      return True
+
+    except mysql.connector.errors.OperationalError as e:
+      self.bot.log(f"RUNLOG OP ERROR: {e.msg}")
+      self.bot.log(f"Restarting connections...")
+      self.close_connections()
+      self.open_connections()
+      try:
+        do_update()
+        return True
+
+      except mysql.connector.errors.OperationalError as e:
+        self.bot.log(f"RUNLOG OP ERROR: {e.msg}")
+        self.bot.log('Original restart failed!!!')
+        return False
+
+  ####################################
+  ####################################
+  #### VETBANS
+  ####################################
+  # Accessor Functions
+
+  def is_vetbanned(self, user_id:int, guild_id:int) -> Tuple[Optional[float], Optional[str], Optional[int], Optional[str]]:
+    """
+    Checks to see if a user has an active vet ban.
+    Doesn't affect the database.
+    Params:
+      user_id: Integer ID of the user
+      guild_id: Integer ID of the guild
+    Returns: 
+      If the user is vetbanned, the ban expiration timestamp (float). Otherwise, none.
+      str: Vetban reason.
+      int: Banning mod's ID.
+      str: Error
+    """
+    
+    error = self._checks(user_id, guild_id)
+    if error:
+      return None, None, None, error
+    
+    try:
+      cursor = self.cons[guild_id].cursor()
+      cursor.execute(f"select suspended, reason, modid, uTime from vetbans where guildid = {guild_id} and id = {user_id};")
+      past_vetbans = cursor.fetchall()
+
+      for active, reason, modid, bantime in past_vetbans:
+        if int(active):
+          if int(bantime) > self._unfix_ts(time.time()):
+            return self._fix_ts(int(bantime)), reason, modid, None
+
+      return None, None, None, None
+    except mysql.connector.errors.DatabaseError as e:
+      return None, None, None, error
+
+  def get_user_vetban_history(self, user_id:int, guild_id:int) -> Tuple[List[tuple], str]:
+    """
+    Gets the vetban history of a user.
+    Params:
+      user_id: Integer ID of the user
+      guild_id: Integer ID of the guild
+    Returns: 
+      Tuple:
+        List of all vetbans related to this user:
+          (Active bool, Reason str, Mod ID int, Log message int, Ban Expiry timestamp float)
+        Error string (if an error occurred)
+    """
+    error = self._checks(user_id, guild_id)
+    if error:
+      return None, error
+    
+    try:
+      cursor = self.cons[guild_id].cursor()
+      cursor.execute(f"select suspended, reason, modid, logmessage, uTime from vetbans where guildid = {guild_id} and id = {user_id};")
+      return [(bool(int(r[0])), r[1], int(r[2]), int(r[3]), self._fix_ts(int(float(r[4])))) for r in cursor.fetchall()], None
+    except mysql.connector.errors.DatabaseError as e:
+      return None, f"Database error: {e.msg}"
+
+  def get_active_vetbans(self, guild_id:int) -> Tuple[List[list], str]:
+    """
+    Gets a list of all active vetbans for a guild.
+    Returns:
+      - List of bans in the format:
+        (user_id int, reason str, mod_id int, log_message int, ban_expiry timestamp)
+      - Error string
+    """
+    error = self._guildchecks(guild_id)
+    if error:
+      return None, error
+
+    try:
+      cursor = self.cons[guild_id].cursor()
+      cursor.execute(f"select id, reason, modid, logmessage, uTime from vetbans where guildid = {guild_id} and suspended = 1;")
+      return [(int(r[0]), r[1], int(r[2]), int(r[3]), self._fix_ts(int(r[4]))) for r in cursor.fetchall()], None
+    
+    except mysql.connector.errors.DatabaseError as e:
+      return None, f"Database error: {e.msg}"
+
+  # Modifier Functions
+
+  VETBAN_COLUMNS = "(id, guildid, suspended, reason, modid, logmessage, uTime)"
+  def add_vetban(self, user_id:int, guild_id:int, mod_id:int, ban_msg_id:int, ban_until:float, reason:str) -> Optional[str]:
+    """
+    Adds an (active) vetban to the user.
+    If the user is already vetbanned, disables the previous ban.
+    DOES NOT adjust any roles on the user! Only changes the database.
+    Params:
+      user_id: Integer ID of the user
+      guild_id: Integer ID of the guild
+      mod_id: Integer ID of the person adding the ban
+      ban_msg_id: Integer ID of the message that banned the user
+      ban_until: Ban expiry timestamp (float)
+      reason: Reason string
+    Returns: 
+      Error string (if an error occurred) or None if success
+    """
+    # 1: Checks
+    error = self._checks(user_id, guild_id)
+    if error:
+      return error
+
+    # We assume in this function that the user associated with mod_id can actually vetban the person
+    # 2: Check to see if the user is already vetbanned
+    try:
+      cursor = self.cons[guild_id].cursor()
+      cursor.execute(f"update vetbans set suspended = 0 where guildid = {guild_id} and id = {user_id};")
+      cursor.execute(f"insert into vetbans {self.VETBAN_COLUMNS} values ({user_id}, {guild_id}, 1, '{reason}', {mod_id}, {ban_msg_id}, {self._unfix_ts(ban_until)});")
+      self.cons[guild_id].commit()
+
+      return None
+    except mysql.connector.errors.DatabaseError as e:
+      return f"Unable to add vetban: Database error: {e}"
+  pass
+
+  def deactivate_vetban(self, user_id:int, guild_id:int) -> Optional[str]:
+    """
+    Deactivates all vetbans for the user.
+    """
+
+    error = self._checks(user_id, guild_id)
+    if error:
+      return error
+
+    try:
+      cursor = self.cons[guild_id].cursor()
+      cursor.execute(f"update vetbans set suspended = 0 where guildid = {guild_id} and id = {user_id};")
+      self.cons[guild_id].commit()
+
+      return None
+    except mysql.connector.errors.DatabaseError as e:
+      return f"Unable to remove vetban: Database error: {e}"
 
 STATS_MSG_LEN = len(';stats')
 class TrackingCog(commands.Cog):

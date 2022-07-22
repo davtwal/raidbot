@@ -1,14 +1,13 @@
-from globalvars import get_admin_roles, ROLES, get_event_roles, get_helper_roles, get_manager_roles, get_raid_roles, get_security_roles, get_vetcontrol_roles, get_veteran_roles
-import shattersbot as sb
-#from globalvars import find_channel
-
 import discord
 from discord import Guild
 from discord.ext import commands
 
 from tracking import close_connections
+from globalvars import REACT_CHECK, REACT_X, confirmation, get_admin_roles, ROLES, get_event_roles, get_helper_roles, get_manager_roles, get_raid_roles, get_security_roles, get_vetcontrol_roles, get_veteran_roles
+import shattersbot as sb
 
 # Actual cog
+import asyncio
 
 class AdminCmds(commands.Cog):
   def __init__(self, bot: sb.ShattersBot):
@@ -56,6 +55,7 @@ class AdminCmds(commands.Cog):
     elif mainarg == 'roles':
       await ctx.send(f'Raider Role: {self.bot.get_raider_role(ctx.guild.id)}\n'
                   +  f'Vet Role: {self.bot.get_vetraider_role(ctx.guild.id)}\n'
+                  +  f'Vetbanned Role: {self.bot.get_vetbanned_role(ctx.guild.id)}\n'
                   +  f'Raidstream Role: {self.bot.get_raidstream_role(ctx.guild.id)}\n'
                   +  f'Nitro Role: {self.bot.get_nitro_role(ctx.guild.id)}\n'
                   +  f'Early Roles: {self.bot.get_early_roles(ctx.guild.id)}\n',
@@ -101,11 +101,12 @@ class AdminCmds(commands.Cog):
         setup debug <enabled|disabled>
           Enables or disables debug mode.
     
-        setup role <stream|raider|vet|nitro> role_id
+        setup role <stream|raider|vet|nitro|vetbanned> role_id
           Sets whatever role to the role id given.
             Stream role is the ephemeral streaming role.
             Raider is the raider role.
             Vet is the veteran raider role.
+            Vetbanned is the banned veteran raider role.
             Nitro is the nitro role. :shrug:
             
         setup role early <add|remove|set> role_ids...
@@ -204,6 +205,14 @@ class AdminCmds(commands.Cog):
           await ctx.send("Argument must be an integer.")
           return
       
+      elif args[0] == 'vetbanned':
+        try:
+          self.bot.gdict[gid][sb.GDICT_VETBANNED_ROLE] = int(args[1])
+          await ctx.send(f"Role ID set to {int(args[1])}")
+        except ValueError:
+          await ctx.send("Argument must be an integer.")
+          return
+
       elif args[0] == 'nitro':
         try:
           self.bot.gdict[gid][sb.GDICT_NITRO_ROLE] = int(args[1])
@@ -370,13 +379,98 @@ class AdminCmds(commands.Cog):
       await ctx.send('Invalid operation. Options are `debug, role, deafcheck, susproof, runinfo, afkrelevancy, section`.')
     pass
   
-  @commands.command('restart')
-  @commands.has_any_role(*get_admin_roles())
-  async def do_exit(self, ctx: commands.Context):
-    """[Admin+] Restarts the bot."""
+  async def do_exit(self):
     self.bot.log('Restart command executed.')
     self.bot.close_connections()
     self.bot.save_db()
-    exit(-1)
-  
+    exit(0)
+
+  @commands.command('restart')
+  @commands.has_any_role(*get_admin_roles())
+  async def cmd_restart(self, ctx: commands.Context):
+    """[Admin+] Restarts the bot, cancelling any active HCs. Can wait for AFK checks to finish though."""
+    # This prevents any new AFKs/HCs from being put up
+    self.bot.pending_shutdown = True
+
+    found_hcs = []
+    found_afks = []
+    for gid in self.bot.managers:
+      for sectname in self.bot.managers[gid]:
+        sect = self.bot.managers[gid][sectname]
+        if len(sect.active_hcs) > 0:
+          found_hcs.append((gid, sectname))
+        if len(sect.active_afks) > 0:
+          found_afks.append((gid, sectname))
+
+    if len(found_hcs) > 0:
+      embed = discord.Embed(title="Active Headcounts Found")
+      embed.description = "A few active headcounts were found."
+      val = ""
+      for gid, sectname in found_hcs:
+        sect = self.bot.managers[gid][sectname]
+        for owner_id in sect.active_hcs:
+          hc = sect.active_hcs[owner_id]
+          owner: discord.Member = ctx.guild.get_member(owner_id)
+          val += f"{hc.status_ch.mention}: {owner.mention}\n"
+
+      embed.add_field(name="Headcounts", value=val)
+      msg = await ctx.send(embed=embed)
+      if not await confirmation(ctx, self.bot, "Would you like to continue anyway? The headcounts will be cancelled."):
+        self.bot.pending_shutdown = False
+        await msg.delete()
+        await ctx.message.add_reaction(REACT_X)
+        return
+
+      else:
+        for gid, sectname in found_hcs:
+          sect = self.bot.managers[gid][sectname]
+          owners = list(sect.active_hcs.keys()) # This copies the keys and lets us do .abandon()
+          for owner_id in owners:
+            owner: discord.Member = ctx.guild.get_member(owner_id)
+            hc = sect.active_hcs[owner_id]
+            await hc.abandon()
+            await hc.status_ch.send("Sadly ShattsBot (me) needs to restart for maintenance, so this headcount has been cancelled. Please wait for the next headcount.\nSorry for the inconvenience!")
+            await hc.ctx.send(f"{owner.mention}, the bot is restarting soon so your headcount has been cancelled.\nSorry for the inconvenience! You can put up another headcount after the bot is back up.")
+
+      await msg.delete()
+
+    if len(found_afks) > 0:
+      embed = discord.Embed(title="Active AFK Checks Found")
+      embed.description = "A few active AFK checks were found."
+      val = ""
+      for gid, sectname in found_afks:
+        sect = self.bot.managers[gid][sectname]
+        for owner_id in sect.active_afks:
+          afk_check = sect.active_afks[owner_id]
+          owner: discord.Member = ctx.guild.get_member(owner_id)
+          val += f"{afk_check.status_ch.mention}: {owner.mention}\n"
+
+      embed.add_field(name="Active AFK Checks", value=val)
+
+      msg = await ctx.send(embed=embed)
+      if await confirmation(ctx, self.bot, "Would you like to wait until the AFK checks are over?", checktext="The bot will check every 30 seconds to see if all AFKs are closed."):
+        cont = True
+        while cont:
+          for gid, sectname in found_afks:
+            if len(self.bot.managers[gid][sectname].active_afks) > 0:
+              await asyncio.sleep(30)
+            else:
+              await ctx.send(f"{ctx.author.mention}, the bot is now restarting.")
+              cont = False
+              break
+      
+      else:
+        for gid, sectname in found_afks:
+          sect = self.bot.managers[gid][sectname]
+          owners = list(sect.active_afks.keys()) # This copies the keys and lets us do .close()
+          for owner_id in owners:
+            owner: discord.Member = ctx.guild.get_member(owner_id)
+            afk_check = sect.active_afks[owner_id]
+            await afk_check.close()
+            await afk_check.ctx.send(f"{owner.mention}, your AFK check was automatically closed as the bot needs to restart. Sorry for any inconvenience!")
+      
+      await msg.delete()
+    
+    await ctx.message.add_reaction(REACT_CHECK)
+    await self.do_exit()
   pass

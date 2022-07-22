@@ -205,6 +205,9 @@ class Headcount:
   
   # This needs to return fast so the interaction doesn't fail.
   async def convert_to_afk(self, lazy):
+    if self.bot.pending_shutdown:
+      return
+
     if self.status != self.STATUS_GATHERING:
       return
     

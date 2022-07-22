@@ -9,7 +9,7 @@ from discord.ext import commands
 
 from section_manager import SectionAFKCheckManager
 from globalvars import RaidingSection, Encoder
-from tracking import setup_dbs, add_runs_done, close_connections, get_run_stats
+from tracking import Tracker
 
 DEBUG_LOG_CHANNEL = 955912379902861332
 DATABASE_FNAME = "database.json"
@@ -52,12 +52,12 @@ DEFAULT_GUILD_DICT = {
 }
 
 class ShattersBot(commands.Bot):
-
   def __init__(self):
     self.gdict: Dict[int, Dict[str, Any]] = {}
     self.managers: Dict[int, Dict[str, SectionAFKCheckManager]] = {}
     self.db_connections: Dict[int, Any] = {}
     self.debugmode: bool = False
+    self.pending_shutdown: bool = False
 
     self.load_db()
 
@@ -77,7 +77,7 @@ class ShattersBot(commands.Bot):
 
   def log(self, debugstr):
     logstr = f"({datetime.now(tz=pytz.timezone('US/Pacific')).replace(microsecond=0).time()}) {debugstr}"
-    asyncio.create_task(self._log(logstr))
+    #asyncio.create_task(self._log(logstr))
     print(logstr)
 
   ####################
@@ -132,9 +132,6 @@ class ShattersBot(commands.Bot):
     self.log("Finshed setting up raid managers.")
     pass
 
-  #async def setup_dbs(self):
-  #  pass
-
   ####################
   ## On-Ready
   ####################
@@ -150,6 +147,9 @@ class ShattersBot(commands.Bot):
     self.log('-----------------------------------------------')
     
     self.startup_time = datetime.now()
+    
+    self.get_cog("Security Commands").start_auto_check()
+    self.tracker = Tracker(self)
 
     manager_setups: Dict[int, List[str]] = {}
 
@@ -161,7 +161,6 @@ class ShattersBot(commands.Bot):
         manager_setups[guild].append(section)
         
     self.setup_managers(manager_setups)
-    self.setup_dbs()
 
   ####################
   ## Get Functions
@@ -244,14 +243,9 @@ class ShattersBot(commands.Bot):
   ## Logging Database
   ####################
 
-  def setup_dbs(self):
-    setup_dbs(self)
-
   def add_runs_done(self, guild_id, d_code, users, leader):
-    add_runs_done(self, guild_id, d_code, users, leader)
+    self.tracker.add_runs_done(guild_id, d_code, users, leader)
 
   def close_connections(self):
-    close_connections(self)
-  
-  def get_run_stats(self, guild_id, user_id):
-    return get_run_stats(self, guild_id, user_id)
+    self.tracker.close_connections()
+

@@ -99,6 +99,7 @@ class AFKCheck:
   #########################################
 
   def _log(self, logstr):
+    """Passes a logstr along to the section manager, with info about the AFK check."""
     if self.manager:
       self.manager._log(f'[afk:{self.owner().display_name}] {logstr}')
 
@@ -106,6 +107,7 @@ class AFKCheck:
     return self.status == self.STATUS_OPEN or self.status == self.STATUS_POST #or self.status == self.STATUS_OPENING
 
   def _keys(self):
+    """Returns a list of everyone who reacted with a key react."""
     l = []
     for r in self.reacts_key:
       l.extend(self.button_reacts[r.id])
@@ -491,10 +493,12 @@ class AFKCheck:
   MOVE_ALREADY_IN = 2   # The user was already in the correct voice channel.
   MOVE_CAPPED = 3       # The destination channel was at its cap, and force was False.
   MOVE_ERROR = 4        # A seperate error occurred.
-  async def _move_in_user(self, user: discord.Member, force:bool=False):
+  async def _move_in_user(self, user: discord.Member, force:bool=False, max_force:bool=False):
     if user.voice and user.voice.channel:
       if user.voice.channel.id != self.voice_ch.id:
-        if self.voice_ch.user_limit >= len(self.voice_ch.members) or force:
+        lim = self.voice_ch.user_limit
+        cur = len(self.voice_ch.members)
+        if max_force or lim > cur or (force and lim + self.manager.section.max_overdrag > cur):
           try:
             await user.move_to(self.voice_ch)
             return self.MOVE_SUCCESS
@@ -702,6 +706,7 @@ class AFKCheck:
   ACK_NITRO_FAIL = 0
   ACK_NITRO_SUCCESS = 1
   ACK_NITRO_REPEAT = 2
+  ACK_NITRO_CAPPED = 3
   async def ack_nitro(self, user: discord.Member) -> int:
     """Acknowledges a nitro button.
 

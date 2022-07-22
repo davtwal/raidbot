@@ -58,6 +58,11 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
   
   async def headcount_main(self, ctx: commands.Context, d: dungeons.Dungeon, raid_section: RaidingSection):    
     bot = self.bot
+
+    if self.bot.pending_shutdown:
+      await ctx.send("A shutdown is pending. Please wait until the bot restarts. Sorry for the inconvenience!")
+      return
+
     if d is None:
       await ctx.send("Error: d was None. Please contact an admin.")
       return
@@ -231,6 +236,10 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
   
   async def afk_main(self, ctx: commands.Context, dungeon: dungeons.Dungeon, raid_section: RaidingSection, lazy:bool=False, cap=None, location:str=None):
     # Step 1: Check which voice channel this will be in.
+    if self.bot.pending_shutdown:
+      await ctx.send("A shutdown is pending. Please wait until the bot restarts. Sorry for the inconvenience!")
+      return
+    
     voice_ch = await get_voice_ch(self.bot, ctx, raid_section)
     if voice_ch is None:
       return None

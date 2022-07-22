@@ -41,15 +41,15 @@ Example: \"raiderMan\" => \"[raiderMan]\""""
 # Type 4: Other Staff
 
 ROLES = [
-  ['Developer', 'Admin', 'Administrator', 'Moderator', 'Owner'], # Type 0
-  ['Head Raid Leader', 'Officer'], # Type 1
-  ['Veteran Raid Leader', 'Veteran Event Leader'], # Type 2a
-  ['Almost Raid Leader', 'Raid Leader'], # Type 2b
-  ['Event Raid Leader', 'Security'], # Type 2c
-  ['Helper', 'Almost Raid Leader', 'Raid Leader'], # Type 3a
-  ['Veteran Raid Leader', 'Veteran Event Leader'], # Type 3b
-  ['Security', 'Verifier'], # Type 3c
-  ['Trial Raid Leader'] # Type 4
+  ['Developer', 'Admin', 'Administrator', 'Moderator', 'Owner'], # Type 0: Admin/Dev
+  ['Head Raid Leader', 'Officer'], # Type 1: Manager
+  ['Veteran Raid Leader', 'Veteran Event Leader'], # Type 2a: Vet ;eaders
+  ['Almost Raid Leader', 'Raid Leader'], # Type 2b: Whitelist leaders
+  ['Event Raid Leader', 'Security'], # Type 2c: Event leaders
+  ['Almost Raid Leader', 'Raid Leader'], # Type 3a: Helpers
+  ['Helper', 'Veteran Raid Leader', 'Veteran Event Leader'], # Type 3b: Vet controllers
+  ['Security', 'Verifier'], # Type 3c: Security
+  ['Trial Raid Leader'] # Type 4: Other
 ]
 
          #Shatters                                                  #Fungal           #Dungeoneer
@@ -113,17 +113,18 @@ class RaidingSection:
     self.cmd_ch:int           = self._try_add(input_dict, 'cmd_ch')         # Raid announcement channel
     self.status_ch:int        = self._try_add(input_dict, 'status_ch')      # Bot command channel
     self.run_info_ch:int      = self._try_add(input_dict, 'run_info_ch')    # 'Run info' channel
-    self.min_role_tier:int    = self._try_add(input_dict, 'min_role_tier')  # Minimum role tier required to put up runs/headcounts
+    self.min_role_tier:int    = self._try_add(input_dict, 'min_role_tier')  # [[UNUSED]] Minimum role tier required to put up runs/headcounts
     self.lounge_ch:int        = self._try_add(input_dict, 'lounge_ch')      # Lounge voice channel
     self.voice_chs:List[int]  = self._try_add(input_dict, 'voice_chs')      # Raiding voice channels
     self.drag_chs:List[int]   = self._try_add(input_dict, 'drag_chs')       # Respective drag channels
-    self.is_vet:bool          = self._try_add(input_dict, 'is_vet')         # Veteran-only channel
-    self.allow_unlock:bool    = self._try_add(input_dict, 'allow_unlock')   # If the voice channel can be locked/unlocked with ^lock
-    self.allow_setcap:bool    = self._try_add(input_dict, 'allow_setcap')   # If the voice channel cap can be altered
-    self.vc_min:int           = self._try_add(input_dict, 'min_vc_cap')     # Minimum VC cap
-    self.vc_max:int           = self._try_add(input_dict, 'max_vc_cap')     # Maximum VC cap
-    self.deafcheck:bool       = self._try_add(input_dict, 'deafcheck')      # If we care about people being deafened in runs for too long
-    self.deafcheck_vet:bool   = self._try_add(input_dict, 'deafcheck_vet')  # If we care about veterans being deafened in runs for too long
+    self.is_vet:bool          = self._try_add(input_dict, 'is_vet', False)        # Veteran-only channel
+    self.allow_unlock:bool    = self._try_add(input_dict, 'allow_unlock', True)   # If the voice channel can be locked/unlocked with ^lock
+    self.allow_setcap:bool    = self._try_add(input_dict, 'allow_setcap', True)   # If the voice channel cap can be altered
+    self.vc_min:int           = self._try_add(input_dict, 'min_vc_cap', 25) # Minimum VC cap
+    self.vc_max:int           = self._try_add(input_dict, 'max_vc_cap', 50) # Maximum VC cap
+    self.max_overcap:int      = self._try_add(input_dict, 'max_overcap', 5) # Maximum amount of people that can be draged in over the VC cap
+    self.deafcheck:bool       = self._try_add(input_dict, 'deafcheck', False)      # If we care about people being deafened in runs for too long
+    self.deafcheck_vet:bool   = self._try_add(input_dict, 'deafcheck_vet', False)  # If we care about veterans being deafened in runs for too long
     
     if 'whitelist' in input_dict and input_dict['whitelist'] is not None:
       self.whitelist:List[str] = input_dict['whitelist']
@@ -142,11 +143,11 @@ class RaidingSection:
     
     pass
   
-  def _try_add(self, d, i):
+  def _try_add(self, d, i, default=None):
     try:
       return d[i]
     except:
-      return None
+      return default
   
   def __dict__(self):
     d = {
@@ -162,6 +163,7 @@ class RaidingSection:
       'allow_setcap': self.allow_setcap,
       'min_vc_cap': self.vc_min,
       'max_vc_cap': self.vc_max,
+      'max_overcap': self.max_overcap,
       'deafcheck': self.deafcheck,
       'deafcheck_vet': self.deafcheck_vet
     }
@@ -184,6 +186,7 @@ class RaidingSection:
     elif key == 'allow_setcap':   return self.allow_setcap
     elif key == 'min_vc_cap':     return self.vc_min
     elif key == 'max_vc_cap':     return self.vc_max
+    elif key == 'max_overcap':    return self.max_overcap
     elif key == 'whitelist':      return self.whitelist
     elif key == 'blacklist':      return self.blacklist
     elif key == 'deafcheck':      return self.deafcheck
@@ -204,6 +207,7 @@ class RaidingSection:
       elif key == 'allow_setcap':   self.allow_setcap   = bool(value)
       elif key == 'min_vc_cap':     self.vc_min         = int(value)
       elif key == 'max_vc_cap':     self.vc_max         = int(value)
+      elif key == 'max_overcap':    self.max_overcap    = int(value)
       elif key == 'whitelist':      self.whitelist      = [x for x in value.split()] if isinstance(value, str) else value
       elif key == 'blacklist':      self.blacklist      = [x for x in value.split()] if isinstance(value, str) else value
       elif key == 'deafcheck':      self.deafcheck      = bool(value)
@@ -225,6 +229,7 @@ class RaidingSection:
     elif key == 'allow_setcap':   del self.allow_setcap
     elif key == 'min_vc_cap':     del self.vc_min
     elif key == 'max_vc_cap':     del self.vc_max
+    elif key == 'max_overcap':    del self.max_overcap
     elif key == 'whitelist':      del self.whitelist
     elif key == 'blacklist':      del self.blacklist
     elif key == 'deafcheck':      del self.deafcheck

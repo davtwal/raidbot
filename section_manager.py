@@ -7,13 +7,14 @@ from discord.ext import commands
 
 import dungeons
 import afk_check as ac
+from globalvars import RaidingSection
 import headcount as hcm
 
 class SectionAFKCheckManager:
   def __init__(self, bot: commands.Bot, guild: discord.Guild, sectionname):
     self.bot = bot
     self.guild = guild
-    self.section = self.bot.get_section(guild.id, sectionname)
+    self.section: RaidingSection = self.bot.get_section(guild.id, sectionname)
     # Keeps track of actively running AFK checks.
     # Key: Owner's ID. Value: AFK check.
     self.active_afks: Dict[int, ac.AFKCheck] = {}
