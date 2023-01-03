@@ -6,7 +6,7 @@ from typing import Optional, Tuple
 
 import discord
 from discord.ext import commands
-from globalvars import REACT_CHECK, REACT_X, confirmation, get_helper_roles, get_manager_roles, get_staff_roles, get_vetcontrol_roles
+from globalvars import REACT_CHECK, REACT_X, confirmation, get_helper_roles, get_manager_roles, get_security_roles, get_staff_roles, get_vetcontrol_roles
 
 from shattersbot import ShattersBot
 import re
@@ -161,7 +161,7 @@ class SecurityCog(commands.Cog, name="Security Commands"):
       else:
         embed.description += "\n\nDoesn't seem to be verified."
 
-    await ctx.send(embed=embed)
+    await ctx.send(content=f"{found.id}" if found else None, embed=embed)
 
   @commands.command(name="history")
   @commands.has_any_role(*get_helper_roles())
@@ -184,28 +184,122 @@ class SecurityCog(commands.Cog, name="Security Commands"):
 
     embed.add_field(name='Can Modmail?', value="`WIP`", inline=True)
     embed.add_field(name='Can Verify?', value="`WIP`", inline=True)
-    embed.add_field(name='Mutes', value="`WIP`", inline=False)
-    embed.add_field(name='Warns (Last Month)', value='`WIP`', inline=False)
+
+    # Mutes
+    mutehist_val = ""
+    mutehist, error = self.bot.tracker.get_mute_history(user.id, ctx.guild.id)
+    if error:
+      mutehist_val = ""
+
+    elif mutehist:
+      for mute in mutehist:
+        mod = ctx.guild.get_member(mute[2])
+        mutehist_val += f"{REACT_CHECK if mute[0] else REACT_X} {mod.mention if mod else mute[2]}: `{mute[1]}` "
+        if mute[4]:
+          mutehist_val += "(permanent)"
+        else:
+          mutehist_val += f"Expire{'s' if mute[0] else 'd'} <t:{int(mute[3])}:R>\n"
+
+    else:
+      mutehist_val = "None"
+
+    embed.add_field(name='Mutes', value=mutehist_val, inline=False)
+
+    # Warns
+    warnhist_val = ""
+    warnhist, error = self.bot.tracker.get_warn_history(user.id, ctx.guild.id)
+    if error: 
+      warnhist_val = error
+
+    elif warnhist:
+      for item in warnhist:
+        mod = ctx.guild.get_member(item[2])
+        warnhist_val += f"{mod.mention if mod else item[2]} <t:{int(item[0])}:R>: `{item[1][1:]}`\n"
+
+    else:
+      warnhist_val = "None"
+
+    embed.add_field(name='Warns', value=warnhist_val, inline=False)
     embed.add_field(name='Suspensions', value='`WIP`', inline=False)
 
     # Vetbans
     vetban_val = ""
     banhist, error = self.bot.tracker.get_user_vetban_history(user.id, ctx.guild.id)
     if error:
-      await ctx.send(f"An error occurred while collecting vet ban history:\n`{error}`")
-      return
-
-    for item in banhist:
-      mod = ctx.guild.get_member(item[2])
-      vetban_val += f"{REACT_CHECK if item[0] else REACT_X}: `{item[1]}` by {mod.mention if mod else item[2]}"
-      vetban_val += f" Expire{'s' if item[0] else 'd'} <t:{int(item[4])}:R>\n"
+      vetban_val = error
     
-    if len(banhist) == 0:
-      vetban_val = "None"
+    else:
+      for item in banhist:
+        mod = ctx.guild.get_member(item[2])
+        vetban_val += f"{REACT_CHECK if item[0] else REACT_X} {mod.mention if mod else item[2]}: `{item[1]}` "
+        vetban_val += f"Expire{'s' if item[0] else 'd'} <t:{int(item[4])}:R>\n"
+
+      if len(banhist) == 0:
+        vetban_val = "None"
 
     embed.add_field(name='Vet Bans', value=vetban_val, inline=False)
 
     await ctx.send(embed=embed)
+
+  @commands.command(name='active')
+  @commands.has_any_role(*get_security_roles())
+  async def cmd_active_discipline(self, ctx:commands.Context, type=None, page=1):
+    """
+    [SEC+] Views all active mutes, vet bans, or suspensions.
+
+    Args:
+      type (str): Type to view. Can be "mutes", "vetbans", or "suspensions"
+      page (int): Which page. Starts at 1. (Unused)
+
+    Example: ^active vetbans
+    """
+    if type is None:
+      await ctx.send("You must provide a type to view.")
+      return
+
+    if type.lower() == "mutes":
+      active, error = self.bot.tracker.get_active_mutes(ctx.guild.id)
+      if error:
+        await ctx.send(f"An error occurred: {error}")
+      
+      else:
+        embed = discord.Embed(title="Active Mutes", description="", color=discord.Color.light_gray())
+
+        if len(active) > 0:
+          for mute in active:
+            muted: discord.Member = ctx.guild.get_member(mute[0])
+            mod: discord.Member = ctx.guild.get_member(mute[2])
+            embed.description += f"{muted.mention if muted else f'`{mute[0]}`'} muted by {mod.mention if mod else f'`{mute[2]}`'} "
+            embed.description += f"{f'expires <t:{int(mute[3])}:R>' if mute[4] else '(permanent)'}:```{mute[1]}```\n"
+    
+        else:
+          embed.description = "There are no currently active mutes."
+
+        await ctx.send(embed=embed)
+
+    elif type.lower() == "vetbans":
+      active, error = self.bot.tracker.get_active_vetbans(ctx.guild.id)
+      if error:
+        await ctx.send(f"An error occurred: {error}")
+
+      else:
+        embed = discord.Embed(title="Active Veteran Bans", description="", color=discord.Color.dark_gray())
+        if len(active) > 0:
+          for ban in active:
+            banuser: discord.Member = ctx.guild.get_member(ban[0])
+            moduser: discord.Member = ctx.guild.get_member(ban[2])
+            embed.description += f"{banuser.mention if banuser else f'`{ban[0]}`'} banned by {moduser.mention if moduser else f'`{ban[2]}`'} "
+            embed.description += f"expires <t:{int(ban[4])}:R>:```{ban[1]}```"
+        else:
+          embed.description = "There are no currently active vet bans."
+
+        await ctx.send(embed=embed)
+
+    elif type.lower() == "suspensions":
+      await ctx.send("Viewing active suspensions is currently a work in progress.")
+
+    else:
+      await ctx.send('Invalid type. Type can be `mutes`, `vetbans`, or `suspensions`.')
 
   @commands.command(name="vetban")
   @commands.has_any_role(*get_vetcontrol_roles())

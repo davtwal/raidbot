@@ -5,7 +5,7 @@ from typing import List, Dict, Optional, Tuple
 import asyncio
 import re
 
-from globalvars import RaidingSection, get_staff_roles, get_event_roles, get_raid_roles, confirmation
+from globalvars import RaidingSection, get_staff_roles, get_event_roles, get_raid_roles, confirmation, get_veteran_roles
 
 import dungeons
 from hc_afk_helpers import channel_checks, create_list, dungeon_checks, get_voice_ch, ask_location
@@ -239,6 +239,10 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
     if self.bot.pending_shutdown:
       await ctx.send("A shutdown is pending. Please wait until the bot restarts. Sorry for the inconvenience!")
       return
+
+    if dungeon is None:
+      await ctx.send("Internal Error: `dungeon` was None. Please report to the developer.")
+      return
     
     voice_ch = await get_voice_ch(self.bot, ctx, raid_section)
     if voice_ch is None:
@@ -383,14 +387,20 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
     """[ARL+] Starts up an Shatters AFK in the current voice channel the user is in, for the same section as the bot command channel.
 
     Usage:
-        afk [s/z/l|lazy] [cap] [location..]
+        afk [type] [cap] [location..]
         
         If an 's' is put as the first argument, it is ignored. It's allowed to keep in style with ViBot's AFK command.
         All arguments, including this one, are optional.
         
-        [z/l|lazy] means that, if you put an z, l or 'lazy' here, then the AFK check will be 'lazy'. A lazy AFK check is one where
-        important reacts, such as keys, are moved into the channel first. Then, when the RL is ready, the channel is opened to the rest
-        of the raiders. This is an optional argument, and if not given, the AFK check will be the standard "open immediately" type.
+        [type] asks for the type of Shatters AFK this is. If not specified, it does a normal Shatters AFK check.
+        Type list:
+          - s        : Normal shatters. Though this is here for compatibility with ViBot, it's good practice to use it.
+          - z/l/lazy : Lazy AFK check normal shatters.
+          - h/hm     : Hard mode shatters. You must be a VRL+ to do hard mode.
+          - hz/hl    : Hard mode, but with a lazy AFK check. You must be a VRL+ to do hard mode.
+        
+        A lazy AFK check is one where important reacts, such as keys, are moved into the channel first. Then, when the RL is ready,
+        the channel is opened to the rest of the raiders.
         
         [cap] is an optional argument that changes the maximum user cap for the voice channel, if allowed.
         The minimum and maximum of what the cap can be is different per section, and if the cap is outside of that range, it will be clamped.
@@ -398,47 +408,59 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
         
         [location] is an optional argument that provides reacts with early location the location specified. If no location is specified, it will
         be set to "TBD". The location of your AFK check can be updated with the ^loc command after it's up.
-    """
-    #if ctx.author.id != 170752798189682689: 
-    #  await ctx.send('Leading Shatters is currently disabled. Soon (tm)')
-    #  return
-    
+    """    
     cont, section = await channel_checks(ctx)
     
     if cont:
       if section.dungeon_allowed(dungeons.SHATTERS_DNAME) is False:
         await ctx.send("You cannot make a Shatters AFK check in this section.")
         return
-      
-      dungeon = dungeons.get(dungeons.SHATTERS_DNAME)
-      assert dungeon
-      
+
       self.bot.log(f"AFK command {ctx.author.display_name}: ^afk {' '.join(args)}")
       lazy = False
-      loc = None
+      loc = "Not Set"
       cap = None
+      dungeon = None
       if len(args) > 0:
         args_parsed = 0
-        if args[0].lower() == 'z' or args[0].lower() == 'l' or args[0].lower == 'lazy':
-          self.bot.log(f'- ({args_parsed}) Parsed Z/L/Lazy')
-          lazy = True
+
+        typeclause = args[0].lower()
+        if len(typeclause) < 1:
+          await ctx.send("Invalid type detected. Please use an valid option.")
+          return
+
+        if typeclause[0] == 'h':
+          for role in get_veteran_roles():
+            if role in [r.name for r in ctx.author.roles]:
+              dungeon = dungeons.get(dungeons.HARDSHATTS_DNAME)
+              assert dungeon
+
+          if dungeon is None:
+            await ctx.send("You are not allowed to lead Hard Mode runs as you are not a VRL.")
+            return
+
+          if len(typeclause) > 1 and typeclause[1] == 'z' or typeclause[1] == 'l':
+            lazy = True
+
           args_parsed += 1
-        elif args[0].lower() == 's':
-          self.bot.log(f'- ({args_parsed}) Parsed S')
+
+        else:
+          dungeon = dungeons.get(dungeons.SHATTERS_DNAME)
+          assert dungeon
+
+          if typeclause[0] in ['z', 'l']:
+            lazy = True
+
           args_parsed += 1
           
         if args_parsed < len(args):
-          self.bot.log(f'- ({args_parsed}) Additional parameters detected')
           try:
             cap = int(args[args_parsed])        
-            self.bot.log(f'- Cap found: {cap}')
             args_parsed += 1          
           except ValueError:
-            self.bot.log(f'- ({args_parsed}) No cap found')
             pass
         
           if args_parsed < len(args):
-            self.bot.log(f'- ({args_parsed}) Additional args taken as location: {args[args_parsed:]}')
             loc = ' '.join(args[args_parsed:])
 
       await self.afk_main(ctx, dungeon, section, lazy, cap, loc)
@@ -485,3 +507,24 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
         
         except ValueError:
           await ctx.send("You must ping whoever you are trying to transfer to.")
+
+  ######################
+  ### OTHER COMMANDS
+  ######################
+
+  @commands.command('poll')
+  @commands.has_any_role(*get_event_roles())
+  async def cmd_poll(self, ctx: commands.Context, polltype=None, *check_text):
+    """
+    [ERL+] Puts up a poll of a specific type. Use ^help poll to see options.
+
+    Types:
+      hm: Hard mode if void phantasm is found. Poll options: (Play) Reset for v/alch. (Check) Do HM if v/alch, but finish the run if not found. (X) Don't do hard mode.
+      us/eu: US or EU.
+      region: US, EU, or Asia/Australia.
+      check <text>: Asks if something is OK.
+
+    Examples:
+      ^poll hm
+      ^poll check Do weak boss key?
+    """

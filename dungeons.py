@@ -1,6 +1,8 @@
 from discord import Emoji
 from typing import Dict, List, Tuple
 
+from shattersbot import ShattersBot
+
 HC_TEXT_GENERIC = """
 A {} headcount has been started by {}.
 React with {} if you plan to join.
@@ -183,6 +185,34 @@ class SanctuaryDungeon(Dungeon):
   def get_key_names(self):
     return ['Inc', 'Sword', 'Helm', 'Shield']
 
+HC_TEXT_HARDSHATTS = """A **__Hard Mode__** headcount has been started by {}.
+
+**This headcount is for __HARD MODE SHATTERS__. Only react to this headcount if you are ready for punishment.**
+It's also possible that multiple keys will be needed if the leader decides to do resets.
+
+*For information on what happens in Hard Mode, check out* {}.
+
+React with {} if you plan to join.
+React with {} if you have key(s).
+React with {} if you would like to do resets, or {} if you would like to finish each attempt.
+"""
+
+AFK_TEXT_HARDSHATTS = """A **__Hard Mode__** raid has been started by {} in {}.
+React with {} if you plan to join.
+Press {} and confim if you have key(s).
+Otherwise react with your role, gear, and class choices below.
+
+*Reset if no phantasm or no alchemy:* **__{}__**
+"""
+class HardModeShattsDungeon(Dungeon):
+  def get_hc_text(self, bot: ShattersBot, rl):
+    portal = self._build_portal_emoji(bot)
+    key = bot.get_emoji(self.react_keys[0])
+    hm_guide_ch = bot.get_channel(959342844059975720)
+    return HC_TEXT_HARDSHATTS.format(rl.mention, hm_guide_ch.mention if hm_guide_ch else "*the guide*", portal, key, '👻')
+    
+
+
 R_BERSERK = 924760618714685501
 R_DAMAGING = 924760618941182002
 R_INSPIRE = 924760618572066827
@@ -312,7 +342,7 @@ dungeonlist: Dict[str, Dict[str, Dungeon]] = {
     FUNGAL_DNAME: Dungeon('Fungal Cavern',  [924714365251362856], [924723992949063730], None, [R_SLOW, R_MSEAL, R_FUNGAL, R_TRICKSTER, R_MYSTIC], standard_buffs),
     NEST_DNAME: Dungeon('Nest',             [924711683409215579], [924723993116803202], None, [R_SLOW, R_DAZE, R_FUNGAL, R_TRICKSTER], standard_buffs),
     SHATTERS_DNAME: Dungeon('Shatters', [924809116755587112], [924723993070682202], {R_SWITCHRUSH: [3, 'Rusher'], R_FUNGAL: [2, 'Supreme Priest']}, [R_MSEAL, R_CSHIELD, R_TRICKSTER, R_SLOW], standard_buffs, 1, shatters_images),
-    HARDSHATTS_DNAME: Dungeon('Hard Shatters', [924809116755587112], [924723993070682202], {R_FUNGAL: [2, 'Supreme Priest'], R_TRICKSTER: [2, None]}, [R_SWITCHRUSH, R_MSEAL, R_CSHIELD, R_SLOW], standard_buffs, 2, shatts_hardmode_images),
+    HARDSHATTS_DNAME: Dungeon('Shatters: Hard Mode', [924809116755587112], [924723993070682202], {R_FUNGAL: [2, 'Supreme Priest'], R_SLOW: [2, None]}, [R_SWITCHRUSH, R_MSEAL, R_CSHIELD], standard_buffs, 2, shatts_hardmode_images),
     CULT_DNAME: Dungeon('Cultist Hideout',  [924711683308519515], [924723992621903883], {R_RUSH: [2, None]}, [R_DAZE, R_TRICKSTER], [R_FUNGAL, R_MSEAL] + standard_buffs),
     VOID_DNAME: VoidDungeon('Void',         [924711683161739324], [924723992621903883, 924723993808887849], None, [R_FUNGAL, R_MSEAL], standard_buffs),
     OSANC_DNAME: SanctuaryDungeon('Oryx\'s Sanctuary', [924728919465267232], [924728746785775706, 924723993272004649, 924723992730927157, 924723993079074947], None, [R_TRICKSTER, R_FUNGAL], [R_MSEAL, R_MYSTIC] + standard_buffs, 2, auto_close=False)

@@ -43,10 +43,10 @@ class AdminCmds(commands.Cog, name="Admin Commands"):
     """[Admin+] View internal parts of the bot.
 
     Args:
-        mainarg ([str]): What to view. Can be: roles, staffroles, sections, section_<sectionname>, hcs, or afks
+        mainarg ([str]): What to view. Can be: roles, staffroles, sections, section_<sectionname>, hcs, or afks.
     """
     if mainarg is None:
-      await ctx.send("What to view. Can be: roles, staffroles, sections, section_<sectionname>, hcs, or afks")
+      await ctx.send("What to view. Can be: roles, staffroles, sections, section_<sectionname>, hcs, or afks.")
       return
 
     if mainarg == 'staffroles':

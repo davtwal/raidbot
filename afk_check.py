@@ -730,7 +730,8 @@ class AFKCheck:
       
       if early or (nitro_role and nitro_role in user.roles):
         self._user_join(user)
-        await self._move_in_user(user, force=True)
+        if await self._move_in_user(user, force=True) == self.MOVE_CAPPED:
+          return self.ACK_NITRO_CAPPED
 
         # this isn't 100% perfect but it works
         if user not in self.has_early_loc:
@@ -900,6 +901,7 @@ AFK_RSP_CONFIRM_TIMEOUT = "Confirmation timed out. Please try again."
 AFK_RSP_CONFIRM_CAPPED = "\nSadly, we've hit the cap for this react. Feel free to bring it, but you won't be moved in or given early location for it."
 AFK_RSP_ALREADY_CONFIRMED = "You've already confirmed and cannot confirm again!"
 AFK_RSP_ALREADY_CLICKED = "You've already clicked this button!"
+AFK_RSP_NITRO_CAPPED = "Sorry, but there are too many people in the raid to move you in. Next time!"
 
 AFK_RSP_WAIT = "Please wait for the channel to open."
 AFK_RSP_MUST_BE_IN_VC = "You must be in the voice channel to react with {}."
@@ -929,6 +931,9 @@ class AFKCheckAFKButton(discord.ui.Button):
       
       if nitro == AFKCheck.ACK_NITRO_SUCCESS:
         await interaction.response.send_message(content=AFK_RSP_THANKS_NITRO.format(drag_channel_mentions), ephemeral=True)
+
+      elif nitro == AFKCheck.ACK_NITRO_CAPPED:
+        await interaction.response.send_message(content=AFK_RSP_NITRO_CAPPED, ephemeral=True)
     
     elif self.confirm == 'join':
       drag = await self.view.ack_join(interaction.user)

@@ -55,7 +55,7 @@ class Headcount:
     time = datetime.now()
     self.panel_embed = discord.Embed(description=HC_PANEL_INFO_STR.format(REACT_CHECK, REACT_PLAY, REACT_WASTE), timestamp=time.replace(hour=(time.hour+1)%24))
     self.panel_embed.set_author(name='Control Panel', icon_url=self.owner().display_avatar.url)
-    self.panel_embed.set_footer(text='This headcount will auto end at')
+    self.panel_embed.set_footer(text='This headcount will auto end')
 
     for care in self.care_reacts:
       label = dungeons.get_react_name(care.id, self.dungeon)

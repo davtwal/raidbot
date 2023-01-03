@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import math #isnan
 import time
 import sqlite3
 from sqlite3 import Connection
@@ -84,7 +85,8 @@ class Tracker:
             user = DB_USERNAME,
             password = DB_PASSWORD,
             port = int(DB_PORT),
-            database = "shatters"
+            database = "shatters",
+            connection_timeout=30
           )
 
           self.bot.log(f'[SETUPDB]: {guild.name} SHATTERS: {self.cons[guild.id]}')
@@ -152,6 +154,9 @@ class Tracker:
     Returns: 
       Tuple(User, Guild, Error String)
     """
+    if guild_id not in self.cons or self.cons[guild_id] is None:
+      return "Not connnected to database. Please restart the bot & pray it connects."
+
     # 1: Make sure guild supports vetbans
     guild = self.bot.get_guild(guild_id)
     if guild is None:
@@ -174,7 +179,7 @@ class Tracker:
   ####################################
   #### RUN COUNTS
   ####################################
-
+  RUN_TRACK_FILE = "runs_{}.log"
   def add_runs_done(self, guild_id, d_code, users: List[discord.Member], leader: discord.Member) -> bool:
     def do_update():
       cursor = self.cons[guild_id].cursor()
@@ -182,6 +187,10 @@ class Tracker:
 
       if guild_id == SHATTERS_DISCORD_ID:
         if d_code == SHATTERS_DNAME:
+          with open(self.RUN_TRACK_FILE.format(SHATTERS_DISCORD_ID), 'a') as f:
+            self.bot.log("Logging run in run file.")
+            f.write(f"{self._unfix_ts(time.time())} {leader.id} {len(users)}\n")
+
           print(f'[ADD_RUNS]: Adding Shatters runs to {[u.display_name for u in users]}')
           cursor.execute(f"update users set runs = runs + 1 where id in ({', '.join(user_ids)});")
         else:
@@ -191,6 +200,10 @@ class Tracker:
         self.cons[guild_id].commit()
 
     try:
+      if guild_id not in self.cons or self.cons[guild_id] is None:
+        self.bot.log("Not connected to database.")
+        return False
+
       do_update()
       return True
 
@@ -207,6 +220,102 @@ class Tracker:
         self.bot.log(f"RUNLOG OP ERROR: {e.msg}")
         self.bot.log('Original restart failed!!!')
         return False
+
+  ####################################
+  ####################################
+  #### MUTES
+  ####################################
+  # Accessor Functions
+
+  def get_mute_history(self, user_id:int, guild_id:int) -> Tuple[Optional[List[Tuple[bool, str, int, float, bool]]], Optional[str]]:
+    """
+    Gets the mute history of a user.
+    Returns:
+      1: List of all mutes
+        1a: Active
+        1b: Reason
+        1c: Muting mod's ID
+        1d: Auto unmute time
+        1e: Permanent
+      2: Error string (if occurred)
+    """
+    error = self._checks(user_id, guild_id)
+    if error:
+      return None, error
+
+    try:
+      cursor = self.cons[guild_id].cursor()
+      cursor.execute(f"select muted, reason, modid, uTime, perma from mutes where guildid = {guild_id} and id = {user_id};")
+      mutehist = cursor.fetchall()
+
+      return [(bool(r[0]), r[1], int(r[2]), 0.0 if bool(r[4]) or math.isnan(float(r[3])) else self._fix_ts(int(r[3])), bool(r[4])) for r in mutehist], None
+
+    except mysql.connector.errors.DatabaseError as e:
+      return None, f"Database error: {e.msg}"
+
+  def get_active_mutes(self, guild_id:int) -> Tuple[Optional[List[Tuple[int, str, int, float, bool]]], str]:
+    """
+    Gets a list of all active vetbans for a guild.
+    Returns:
+      1: List of bans in the format:
+        1a: Muted user ID
+        1b: Reason
+        1c: Muting mod's ID
+        1d: Unmute time
+        1e: Permanent
+      2: Error string
+    """
+    error = self._guildchecks(guild_id)
+    if error:
+      return None, error
+
+    try:
+      cursor = self.cons[guild_id].cursor()
+      cursor.execute(f"select id, reason, modid, uTime, perma from mutes where guildid = {guild_id} and muted = 1;")
+      
+      active_mutes = cursor.fetchall()
+      #for r in active_mutes:
+      #  try:
+      #    int(r[0])
+      #    int(r[2])
+      #    int(r[3])
+      #  except ValueError:
+      #    return None, f"{r}"
+      
+      return [(int(r[0]), r[1], int(r[2]), 0.0 if bool(r[4]) or math.isnan(float(r[3])) else self._fix_ts(int(r[3])), bool(r[4])) for r in active_mutes], None
+    
+    except mysql.connector.errors.DatabaseError as e:
+      return None, f"Database error: {e.msg}"
+
+  ####################################
+  ####################################
+  #### WARNS
+  ####################################
+  # Accessor Functions
+
+  def get_warn_history(self, user_id:int, guild_id:int) -> Tuple[Optional[List[Tuple[float, str, int]]], Optional[str]]:
+    """
+    Gets the warn history of a user in a guild.
+    Returns:
+      1: List of all warns
+        1a: Time of warn
+        1b: Warn reason
+        1c: Warning mod's ID
+      2: Error string (if occurred)
+    """
+    error = self._checks(user_id, guild_id)
+    if error:
+      return None, error
+
+    try:
+      cursor = self.cons[guild_id].cursor()
+      cursor.execute(f"select time, reason, modid from warns where guildid = {guild_id} and id = {user_id};")
+      warnhist = cursor.fetchall()
+
+      return [(self._fix_ts(r[0]), r[1], int(r[2])) for r in warnhist], None
+
+    except mysql.connector.errors.DatabaseError as e:
+      return None, f"Database error: {e.msg}"
 
   ####################################
   ####################################
@@ -244,9 +353,9 @@ class Tracker:
 
       return None, None, None, None
     except mysql.connector.errors.DatabaseError as e:
-      return None, None, None, error
+      return None, None, None, f"Database error: {e.msg}"
 
-  def get_user_vetban_history(self, user_id:int, guild_id:int) -> Tuple[List[tuple], str]:
+  def get_user_vetban_history(self, user_id:int, guild_id:int) -> Tuple[List[Tuple[bool, str, int, int, float]], str]:
     """
     Gets the vetban history of a user.
     Params:
@@ -269,7 +378,7 @@ class Tracker:
     except mysql.connector.errors.DatabaseError as e:
       return None, f"Database error: {e.msg}"
 
-  def get_active_vetbans(self, guild_id:int) -> Tuple[List[list], str]:
+  def get_active_vetbans(self, guild_id:int) -> Tuple[List[Tuple[int, str, int, int, float]], str]:
     """
     Gets a list of all active vetbans for a guild.
     Returns:
@@ -284,7 +393,7 @@ class Tracker:
     try:
       cursor = self.cons[guild_id].cursor()
       cursor.execute(f"select id, reason, modid, logmessage, uTime from vetbans where guildid = {guild_id} and suspended = 1;")
-      return [(int(r[0]), r[1], int(r[2]), int(r[3]), self._fix_ts(int(r[4]))) for r in cursor.fetchall()], None
+      return [(int(r[0]), r[1], int(r[2]), int(r[3]), self._fix_ts(int(float(r[4])))) for r in cursor.fetchall()], None
     
     except mysql.connector.errors.DatabaseError as e:
       return None, f"Database error: {e.msg}"
@@ -350,12 +459,26 @@ class TrackingCog(commands.Cog):
 
   #@commands.has_any_role(*get_manager_roles())
   #@commands.command(name='claw')  
-  async def claw(self, ctx: commands.Context, type):
+  async def claw(self, ctx: commands.Context, type=None, channelID=None):
     """[Manager+] Runs through a channel looking for specific messages.
+
+    Usage:
+      ^claw <thing> <channelID>
 
     Things to claw for:
      - "afk": Searches for AFK check panels from either ShattsBot (this bot) or ViBot.
+     - "staffupdates": Searches for staff updates
     """
+
+    if channelID is None:
+      await ctx.send("You must specify a channel ID to claw.")
+      return
+
+    channel: discord.TextChannel = ctx.guild.get_channel(channelID)
+    if channel is None or channel.type != discord.ChannelType.text:
+      await ctx.send("You must specific a valid text channel")
+      return
+    
     if type.lower() == 'afk':
       since_date = datetime.now()
       since_date = since_date.replace(month=(since_date.month-3)%11, year=(since_date.year - 1 if since_date.month < 3 else since_date.year))
@@ -365,6 +488,10 @@ class TrackingCog(commands.Cog):
       found = await claw_fn(ctx.channel, "AFK", self.bot.user, since_date)
       
       embed = discord.Embed()
+
+    elif type.lower() == 'staffupdates':
+      channel.history()
+
     pass
 
   @commands.Cog.listener()

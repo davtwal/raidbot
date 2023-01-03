@@ -162,6 +162,8 @@ class ShattersBot(commands.Bot):
         
     self.setup_managers(manager_setups)
 
+  #async def shutdown(self):
+
   ####################
   ## Get Functions
   ####################
