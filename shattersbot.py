@@ -58,13 +58,14 @@ class ShattersBot(commands.Bot):
     self.db_connections: Dict[int, Any] = {}
     self.debugmode: bool = False
     self.pending_shutdown: bool = False
+    self.ready: bool = False
 
     self.load_db()
 
     intents = discord.Intents.default()
     intents.members = True
     intents.messages = True
-
+    self.log("Booting up")
     super().__init__(command_prefix="^", intents=intents)
   
   async def _log(self, logstr):
@@ -136,11 +137,19 @@ class ShattersBot(commands.Bot):
   ## On-Ready
   ####################
 
+  async def on_error(self, event, *args, **kwargs):
+    self.log(f'ERROR: {event} {args} {kwargs}')
+
+  async def on_connect(self):
+    self.log("---------Connection to Bot Established---------")
+
   async def on_ready(self):
-    try:
-      self.debugch = await self.fetch_channel(DEBUG_LOG_CHANNEL)
-    except:
-      print(f"!!!! COULD NOT FETCH DEBUG CHANNEL: {DEBUG_LOG_CHANNEL}!!!!!")
+    if self.ready:
+      return
+    #try:
+    #  self.debugch = await self.fetch_channel(DEBUG_LOG_CHANNEL)
+    #except:
+    #  print(f"!!!! COULD NOT FETCH DEBUG CHANNEL: {DEBUG_LOG_CHANNEL}!!!!!")
 
     self.log('--------------------BOOT UP--------------------')
     self.log(f'Bot logged in: {self.user} (ID {self.user.id})')
@@ -161,6 +170,7 @@ class ShattersBot(commands.Bot):
         manager_setups[guild].append(section)
         
     self.setup_managers(manager_setups)
+    self.ready = True
 
   #async def shutdown(self):
 
