@@ -1,8 +1,6 @@
 from discord import Emoji
 from typing import Dict, List, Tuple
 
-from shattersbot import ShattersBot
-
 HC_TEXT_GENERIC = """
 A {} headcount has been started by {}.
 React with {} if you plan to join.
@@ -205,7 +203,7 @@ Otherwise react with your role, gear, and class choices below.
 *Reset if no phantasm or no alchemy:* **__{}__**
 """
 class HardModeShattsDungeon(Dungeon):
-  def get_hc_text(self, bot: ShattersBot, rl):
+  def get_hc_text(self, bot, rl):
     portal = self._build_portal_emoji(bot)
     key = bot.get_emoji(self.react_keys[0])
     hm_guide_ch = bot.get_channel(959342844059975720)

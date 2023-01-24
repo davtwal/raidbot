@@ -387,10 +387,14 @@ class AdminCmds(commands.Cog, name="Admin Commands"):
 
   @commands.command('restart')
   @commands.has_any_role(*get_admin_roles())
-  async def cmd_restart(self, ctx: commands.Context):
+  async def cmd_restart(self, ctx: commands.Context, force=None):
     """[Admin+] Restarts the bot, cancelling any active HCs. Can wait for AFK checks to finish though."""
     # This prevents any new AFKs/HCs from being put up
     self.bot.pending_shutdown = True
+
+    if force == 'force':
+      await ctx.message.add_reaction(REACT_CHECK)
+      await self.do_exit()
 
     found_hcs = []
     found_afks = []
