@@ -215,10 +215,10 @@ class SectionAFKCheckManager:
           try:
             await info_ch.send(f'AFK Check: https://discord.com/channels/{self.guild.id}/{afk.ctx.channel.id}/{afk.panel_msg.id}',embed=info_embed)
             self._log(f'Run logged.')
-          except discord.errors.HTTPException as err:
-            self._log(f'Unable to log run (HTTP Error): {err}')
           except discord.errors.Forbidden as err:
             self._log(f'Unable to log run (Forbidden): {err}')
+          except discord.errors.HTTPException as err:
+            self._log(f'Unable to log run (HTTP Error): {err}')
           except discord.errors.InvalidArgument as err:
             self._log(f'Unable to log run (Invalid Arg): {err}')
 

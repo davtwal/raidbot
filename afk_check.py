@@ -274,7 +274,7 @@ class AFKCheck:
   
   async def _update_afk_reacts(self, react_emoji, user):
     # update afk panel
-    self.afk_embed._fields[0]['value'] = self._build_afk_react_text()
+    self.afk_embed.fields[0].value=self._build_afk_react_text()
     await self.afk_msg.edit(embed=self.afk_embed)
     
     # update control panel
@@ -283,11 +283,11 @@ class AFKCheck:
       await self.ctx.send(f"Error: field_index of {react_emoji} was -1")
       
     else:
-      if self.panel_embed._fields[field_index]['value'] == 'None':
-        self.panel_embed._fields[field_index]['value'] = user.mention
+      if self.panel_embed.fields[field_index].value == 'None':
+        self.panel_embed.fields[field_index].value=user.mention
         
       else:
-        self.panel_embed._fields[field_index]['value'] += f" {user.mention}"
+        self.panel_embed.fields[field_index].value += f" {user.mention}"
       
       await self.panel_msg.edit(embed=self.panel_embed)
 
@@ -356,7 +356,7 @@ class AFKCheck:
   
   async def update_location(self, newloc):
     self.location = newloc
-    self.panel_embed._fields[0]['value'] = f"*{newloc}*"
+    self.panel_embed.fields[0].value=f"*{newloc}*"
     await self.panel_msg.edit(embed=self.panel_embed)
     
     for user in self.has_early_loc:
@@ -963,7 +963,7 @@ class AFKCheckAFKButton(discord.ui.Button):
       await confirm_view.wait()
       
       if confirm_view.value is None:
-        await interaction.edit_original_message(content=AFK_RSP_CONFIRM_TIMEOUT, view=None)
+        await interaction.edit_original_response(content=AFK_RSP_CONFIRM_TIMEOUT, view=None)
         return
       
       elif confirm_view.value:
@@ -981,10 +981,10 @@ class AFKCheckAFKButton(discord.ui.Button):
           if isinstance(drag, str):
             rsp += AFK_RSP_TELL_LOCATION.format(drag)
           
-        await interaction.edit_original_message(content=rsp, view=None)
+        await interaction.edit_original_response(content=rsp, view=None)
         
       else:
-        await interaction.edit_original_message(content=AFK_RSP_CONFIM_CANCELLED, view=None)
+        await interaction.edit_original_response(content=AFK_RSP_CONFIM_CANCELLED, view=None)
     
     else:
       drag = await self.view.ack_button(self.emoji, interaction.user, False)

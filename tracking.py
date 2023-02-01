@@ -393,6 +393,7 @@ class Tracker:
     try:
       cursor = self.cons[guild_id].cursor()
       cursor.execute(f"select id, reason, modid, logmessage, uTime from vetbans where guildid = {guild_id} and suspended = 1;")
+
       return [(int(r[0]), r[1], int(r[2]), int(r[3]), self._fix_ts(int(float(r[4])))) for r in cursor.fetchall()], None
     
     except mysql.connector.errors.DatabaseError as e:
@@ -451,6 +452,96 @@ class Tracker:
       return None
     except mysql.connector.errors.DatabaseError as e:
       return f"Unable to remove vetban: Database error: {e}"
+
+  ####################################
+  ####################################
+  #### SUSPENSIONS
+  ####################################
+  # Acessor Functions
+
+  def is_suspended(self, user_id:int, guild_id: int) -> Tuple[Optional[float|bool], Optional[str], Optional[int], Optional[str]]:
+    """
+    Checks to see if a user has an active suspension.
+    Doesn't affect the database.
+    Params:
+      user_id: Integer ID of the user
+      guild_id: Integer ID of the guild
+    Returns: 
+      If the user is non-permanently suspended, the ban expiration timestamp (float). 
+        Or, if permanently, suspended, True. Otherwise, none.
+      str: Suspension reason.
+      int: Suspending mod's ID.
+      str: Error
+    """
+    pass
+
+    error = self._checks(user_id, guild_id)
+    if error:
+      return None, None, None, error
+
+    try:
+      cursor = self.cons[guild_id].cursor()
+      cursor.execute(f"select suspended, reason, modid, perma, uTime from suspensions where guildid = {guild_id} and id = {user_id};")
+      past_suspensions = cursor.fetchall()
+
+      for active, reason, modid, perma, bantime in past_suspensions:
+        if int(active):
+          if perma:
+            return True, reason, modid, None
+          elif int(bantime) > self._unfix_ts(time.time()):
+            return self._fix_ts(int(bantime)), reason, modid, None
+
+    except mysql.connector.errors.DatabaseError as e:
+      return None, None, None, f"Database error: {e.msg}"
+
+  def get_user_suspension_history(self, user_id:int, guild_id:int) -> Tuple[List[Tuple[bool, str, int, int, float|bool]], str]:
+    """
+    Gets the suspension history of a user.
+    Params:
+      user_id: Integer ID of the user
+      guild_id: Integer ID of the guild
+    Returns: 
+      Tuple:
+        List of all suspensions related to this user:
+          (Active bool, Reason str, Mod ID int, Ban Expiry timestamp float OR True if permanent)
+        Error string (if an error occurred)
+    """
+    error = self._checks(user_id, guild_id)
+    if error:
+      return None, error
+    
+    try:
+      cursor = self.cons[guild_id].cursor()
+      cursor.execute(f"select suspended, reason, modid, perma, uTime from suspensions where guildid = {guild_id} and id = {user_id};")
+      suspends = cursor.fetchall()
+      
+      if len(suspends) < 1:
+        return None, None
+
+      return [(bool(int(r[0])), r[1], int(r[2]), True if bool(r[3]) else self._fix_ts(int(float(r[4])))) for r in suspends], None
+    except mysql.connector.errors.DatabaseError as e:
+      return None, f"Database error: {e.msg}"
+
+  def get_active_suspensions(self, guild_id:int):
+    """
+    Gets a list of all active suspensions for a guild.
+    Returns:
+      - List of suspensions in the format:
+        (user_id int, reason str, mod_id int, ban_expiry timestamp OR true if permanent)
+      - Error string
+    """
+    error = self._guildchecks(guild_id)
+    if error:
+      return None, error
+
+    try:
+      cursor = self.cons[guild_id].cursor()
+      cursor.execute(f"select id, reason, modid, perma, uTime from suspensions where guildid = {guild_id} and suspended = 1;")
+      return [(int(r[0]), r[1], int(r[2]), True if bool(r[3]) else self._fix_ts(int(float(r[4])))) for r in cursor.fetchall()], None
+    
+    except mysql.connector.errors.DatabaseError as e:
+      return None, f"Database error: {e.msg}"
+
 
 STATS_MSG_LEN = len(';stats')
 class TrackingCog(commands.Cog):

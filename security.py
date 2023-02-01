@@ -220,7 +220,20 @@ class SecurityCog(commands.Cog, name="Security Commands"):
       warnhist_val = "None"
 
     embed.add_field(name='Warns', value=warnhist_val, inline=False)
-    embed.add_field(name='Suspensions', value='`WIP`', inline=False)
+
+    # Suspensions
+    susphist_val = ""
+    susphist, error = self.bot.tracker.get_user_suspension_history(user.id, ctx.guild.id)
+    if error:
+      susphist_val = error
+
+    elif susphist:
+      for item in susphist:
+        mod = ctx.guild.get_member(item[2])
+        susphist_val += f"{REACT_CHECK if item[0] else REACT_X} {mod.mention if mod else item[2]}: `{item[1]}` "
+        susphist_val += "Permanent\n" if item[3] is True else f"Expire{'s' if item[0] else 'd'} <t:{int(item[3])}:R>\n"
+
+    embed.add_field(name='Suspensions', value=susphist_val, inline=False)
 
     # Vetbans
     vetban_val = ""
@@ -296,7 +309,26 @@ class SecurityCog(commands.Cog, name="Security Commands"):
         await ctx.send(embed=embed)
 
     elif type.lower() == "suspensions":
-      await ctx.send("Viewing active suspensions is currently a work in progress.")
+      active, error = self.bot.tracker.get_active_suspensions(ctx.guild.id)
+      if error:
+        await ctx.send(f"An error occurred: {error}")
+
+      else:
+        embed = discord.Embed(title="Active Suspensions", description="", color=discord.Color.dark_gray())
+        if len(active) > 0:
+          count = 0
+          for ban in active:
+            count += 1
+            banuser: discord.Member = ctx.guild.get_member(ban[0])
+            moduser: discord.Member = ctx.guild.get_member(ban[2])
+            embed.description += f"{banuser.mention if banuser else f'`{ban[0]}`'} suspended by {moduser.mention if moduser else f'`{ban[2]}`'} "
+            embed.description += f"{'(perma)' if ban[3] is True else f'expires <t:{int(ban[3])}:R>'}:```{ban[1]}```"
+            if count > 15:
+              break
+        else:
+          embed.description = "There are no currently active vet bans."
+
+        await ctx.send(embed=embed)
 
     else:
       await ctx.send('Invalid type. Type can be `mutes`, `vetbans`, or `suspensions`.')

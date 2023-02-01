@@ -125,7 +125,7 @@ class Headcount:
         sections.append(user.mention)
       field_text = ' '.join(sections)
       
-    self.panel_embed._fields[field_index]['value'] = field_text
+    self.panel_embed.fields[field_index].value=field_text
     await self.panel_msg.edit(embed=self.panel_embed)
   
   async def _remove_react(self, field_index, user):
@@ -137,7 +137,7 @@ class Headcount:
     sections = field_text.split()
     sections = ['[' + sec + ']' if sec == user.mention else sec for sec in sections]
     field_text = ' '.join(sections)
-    self.panel_embed._fields[field_index]['value'] = field_text
+    self.panel_embed.fields[field_index].value=field_text
     await self.panel_msg.edit(embed=self.panel_embed)
   
   async def abandon(self, auto_end=False):

@@ -65,6 +65,7 @@ class ShattersBot(commands.Bot):
     intents = discord.Intents.default()
     intents.members = True
     intents.messages = True
+    intents.message_content = True
     self.log("Booting up")
     super().__init__(command_prefix="^", intents=intents)
   

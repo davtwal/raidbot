@@ -7,6 +7,7 @@ from globalvars import get_veteran_roles, get_staff_roles, get_event_roles, get_
 from globalvars import confirmation
 
 from shattersbot import ShattersBot
+from security import user_search
 
 #from globalvars import get_vetchannels, get_clean_links, get_staff_roles, get_unlockables, get_event_roles, get_admin_roles, get_manager_roles, get_raider_role, get_raidstream_role, confirmation, get_setcap_max, get_setcap_min
 #from globalvars import get_setcap_vetmax, get_setcap_vetmin
@@ -226,25 +227,35 @@ class ExtraCmds(commands.Cog, name='Extra Commands'):
       await ctx.send("Please enter a name")
       return
     
-    member = None
-    try:
-      member = ctx.guild.get_member(int(nameparts[0]))
-      if member is None:
-        await ctx.send("Member not found.")
-        return
-      
-    except ValueError:
-      names = re.findall('[a-zA-Z]+', ' '.join(nameparts))
-      for n in names:
-        member = ctx.guild.get_member_named(n)
-        if member is not None:
-          break
+    if len(nameparts) > 1:
+      nameparts = ' '.join(nameparts)
+    else:
+      nameparts = nameparts[0]
+
+    member, _ = user_search(nameparts, ctx.guild)
+    if member is None:
+      await ctx.send(f"`{nameparts}` not found.")
+      return
     
-      if member is None:
-        member = ctx.guild.get_member_named(' '.join(nameparts))
-        if member is None:
-          await ctx.send("Member not found. Try using the raiders ID.")
-          return
+    #member = None
+    #try:
+    #  member = ctx.guild.get_member(int(nameparts[0]))
+    #  if member is None:
+    #    await ctx.send("Member not found.")
+    #    return
+    #  
+    #except ValueError:
+    #  names = re.findall('[a-zA-Z]+', ' '.join(nameparts))
+    #  for n in names:
+    #    member = ctx.guild.get_member_named(n)
+    #    if member is not None:
+    #      break
+    #
+    #  if member is None:
+    #    member = ctx.guild.get_member_named(' '.join(nameparts))
+    #    if member is None:
+    #      await ctx.send("Member not found. Try using the raiders ID.")
+    #      return
     
     if await confirmation(ctx, self.bot, "Give " + member.mention + " temporary streaming perms?", member.mention + " was given streaming perms."):
       role = ctx.guild.get_role(self.bot.get_raidstream_role(ctx.guild.id))
