@@ -5,6 +5,7 @@ from discord.ext import commands
 from tracking import close_connections
 from globalvars import REACT_CHECK, REACT_X, confirmation, get_admin_roles, ROLES, get_event_roles, get_helper_roles, get_manager_roles, get_raid_roles, get_security_roles, get_vetcontrol_roles, get_veteran_roles
 import shattersbot as sb
+import dungeons
 
 # Actual cog
 import asyncio
@@ -53,13 +54,24 @@ class AdminCmds(commands.Cog, name="Admin Commands"):
       await ctx.send(str(ROLES))
 
     elif mainarg == 'roles':
-      await ctx.send(f'Raider Role: {self.bot.get_raider_role(ctx.guild.id)}\n'
-                  +  f'Vet Role: {self.bot.get_vetraider_role(ctx.guild.id)}\n'
-                  +  f'Vetbanned Role: {self.bot.get_vetbanned_role(ctx.guild.id)}\n'
-                  +  f'Raidstream Role: {self.bot.get_raidstream_role(ctx.guild.id)}\n'
-                  +  f'Nitro Role: {self.bot.get_nitro_role(ctx.guild.id)}\n'
-                  +  f'Early Roles: {self.bot.get_early_roles(ctx.guild.id)}\n',
-                  embed=discord.Embed(description=f"""
+      embed = discord.Embed()
+
+      indiv_role_desc = ""
+      for role in sb.GDICT_INDIV_ROLES:
+        indiv_role_desc += f"`{role}`: {self.bot.gdict[ctx.guild.id][role]}\n"
+      
+      indiv_role_desc += f"`early`: {self.bot.get_early_roles(ctx.guild.id)}\n"
+
+      embed.add_field(name='Individual Roles', value=indiv_role_desc)
+
+      dungeon_pingroles_desc = ""
+      for dungeon in self.bot.get_dungeon_ping_role_list(ctx.guild.id):
+        role = self.bot.get_dungeon_ping_role(ctx.guild.id, dungeon)
+        dungeon_pingroles_desc += f"`{dungeon}`: {role.mention if role else 'None'}"
+        
+      embed.add_field(name="Dungeon Ping Roles", value=dungeon_pingroles_desc)
+
+      embed.add_field(name="Staff Roles", value=f"""
                   T0: {get_admin_roles()}
                   T1: {get_manager_roles()}
                   T2a: {get_veteran_roles()}
@@ -68,7 +80,9 @@ class AdminCmds(commands.Cog, name="Admin Commands"):
                   T3a: {get_helper_roles()}
                   T3b: {get_vetcontrol_roles()}
                   T3c: {get_security_roles()}
-                  """))
+                  """)
+      
+      await ctx.send(embed=embed)
     
     elif mainarg == 'sections':
       await ctx.send(f'```{self.bot.gdict[ctx.guild.id][sb.GDICT_SECTIONS].keys()}```')
@@ -89,10 +103,78 @@ class AdminCmds(commands.Cog, name="Admin Commands"):
     
     pass
   
+  async def _setup_roles(self, ctx, gid, *args) -> bool:
+    if len(args) < 2:
+      await ctx.send('Invalid number of arguments passed.')
+      return False
+    
+    if args[0] == 'early':
+      try:
+        if args[1] == 'add':
+          for rolestr in args[2:]:
+            roleid = int(rolestr)
+            if rolestr not in self.bot.gdict[gid][sb.GDICT_EARLY_ROLES]:
+              self.bot.gdict[gid][sb.GDICT_EARLY_ROLES].append(roleid)
+              await ctx.send(f"{roleid} added to early roles.")
+              return True
+              
+        if args[1] == 'remove':
+          for rolestr in args[2:]:
+            roleid = int(rolestr)
+            if rolestr in self.bot.gdict[gid][sb.GDICT_EARLY_ROLES]:
+              self.bot.gdict[gid][sb.GDICT_EARLY_ROLES].remove(roleid)
+              await ctx.send(f"{roleid} removed from early roles.")
+              return True
+        
+        if args[1] == 'set':
+          roleids = [int(rolestr) for rolestr in args[2:]]
+          self.bot.gdict[gid][sb.GDICT_EARLY_ROLES] = roleids
+          await ctx.send(f"Early role IDs set to {roleids}")
+          return True
+          
+        await ctx.send("Invalid add|remove|set given.")
+        return False
+      
+      except ValueError:
+        await ctx.send("Argument must be an integer.")
+        return False
+    # endif args[0] == 'early'
+      
+    elif args[0] in sb.GDICT_INDIV_ROLES:
+      return await self._setup_role(ctx, gid, args[0], args[1])
+    else:
+      await ctx.send(f"Invalid role. Role must be one of `{sb.GDICT_INDIV_ROLES}`.")
+      return False
+
+  async def _setup_role(self, ctx, gid, rolename, roleid) -> bool:
+    try:
+      self.bot.gdict[gid][rolename] = int(roleid)
+      await ctx.send(f"Role ID for `{rolename}` set to `{roleid}`")
+      return True
+    
+    except ValueError:
+      await ctx.send("Argument must be an integer.")
+      return False
+
+  async def _setup_channel(self, ctx, gid, chname, chid) -> bool:
+    try:
+      ch: discord.TextChannel = ctx.guild.get_channel(int(chid))
+    except:
+      await ctx.send('Argument must be an integer.')
+      return False
+    
+    if not ch or ch.type != discord.ChannelType.text:
+      await ctx.send(f'Channel ID `{chid}` not found, or is not a text channel.')
+      return False
+    
+    await ctx.send(f'Run info channel set to {ch.mention}.')
+    self.bot.gdict[gid][sb.GDICT_RUNINFO_CH] = ch.id
+    return True
+
   @commands.command(name='setup')
   @commands.has_any_role(*get_admin_roles())
   async def setup(self, ctx: commands.Context, mainarg=None, *args):
-    """[Admin+] Setup command.
+    f"""[Admin+] Setup command.
 
     Args:
         mainarg (str): Which setup command to use.
@@ -101,24 +183,20 @@ class AdminCmds(commands.Cog, name="Admin Commands"):
         setup debug <enabled|disabled>
           Enables or disables debug mode.
     
-        setup role <stream|raider|vet|nitro|vetbanned> role_id
-          Sets whatever role to the role id given.
-            Stream role is the ephemeral streaming role.
-            Raider is the raider role.
-            Vet is the veteran raider role.
-            Vetbanned is the banned veteran raider role.
-            Nitro is the nitro role. :shrug:
+        setup role <role name> role_id
+          Sets whatever role to the role id given. Roles are {sb.GDICT_INDIV_ROLES}.
             
         setup role early <add|remove|set> role_ids...
           Sets, adds, or removes from the early roles.
           Early roles will automatically get moved into the voice channel and given location
           as soon as they click the Join button.
-        
-        setup susproof <channel_id>
-          Sets the suspension proof channel.
 
-        setup runinfo <channel_id>
-          Sets the run info channel.
+        setup dungeonping <dungeonname> <role ID>
+          Sets the ping role for a specific dungeon.
+        
+        setup <channel> <channel_id>
+          Sets the channel ID for a given channel.
+          Channels are {sb.GDICT_CHANNELS}.
 
         setup deafcheck <warntime|susptime> <time>
           Sets the warning or suspension time for a detected deafen. Time is in seconds.
@@ -131,7 +209,10 @@ class AdminCmds(commands.Cog, name="Admin Commands"):
 
         setup section add|remove name
           Adds or removes a section.
-          
+        
+        setup dungeonping <dungeon code> <role ID>
+          Sets the role ping for a specific dungeon code.
+
         setup section <name> <part> (arguments...)
           Sets a different part of the given section to something.
           I'm too lazy to add the checking for this command that will almost never be used,
@@ -177,121 +258,37 @@ class AdminCmds(commands.Cog, name="Admin Commands"):
       return
 
     elif mainarg == 'role':
+      if await self._setup_roles(ctx, gid, *args):
+        self.bot.save_db()
+
+    elif mainarg == 'dungeonping':
       if len(args) < 2:
-        await ctx.send('Invalid number of arguments passed.')
+        await ctx.send("Invalid amount of arguments")
         return
       
-      if args[0] == 'stream':
-        try:
-          self.bot.gdict[gid][sb.GDICT_RAIDSTREAM_ROLE] = int(args[1])
-          await ctx.send(f"Role ID set to {int(args[1])}")
-        except ValueError:
-          await ctx.send("Argument must be an integer.")
-          return
-        
-      elif args[0] == 'raider':
-        try:
-          self.bot.gdict[gid][sb.GDICT_RAIDER_ROLE] = int(args[1])
-          await ctx.send(f"Role ID set to {int(args[1])}")
-        except ValueError:
-          await ctx.send("Argument must be an integer.")
-          return
-        
-      elif args[0] == 'vet':
-        try:
-          self.bot.gdict[gid][sb.GDICT_VETRAIDER_ROLE] = int(args[1])
-          await ctx.send(f"Role ID set to {int(args[1])}")
-        except ValueError:
-          await ctx.send("Argument must be an integer.")
-          return
-      
-      elif args[0] == 'vetbanned':
-        try:
-          self.bot.gdict[gid][sb.GDICT_VETBANNED_ROLE] = int(args[1])
-          await ctx.send(f"Role ID set to {int(args[1])}")
-        except ValueError:
-          await ctx.send("Argument must be an integer.")
-          return
-
-      elif args[0] == 'nitro':
-        try:
-          self.bot.gdict[gid][sb.GDICT_NITRO_ROLE] = int(args[1])
-          await ctx.send(f"Role ID set to {int(args[1])}")
-        except ValueError:
-          await ctx.send("Argument must be an integer.")
-          return
-      
-      elif args[0] == 'early':
-        try:
-          if args[1] == 'add':
-            for rolestr in args[2:]:
-              roleid = int(rolestr)
-              if rolestr not in self.bot.gdict[gid][sb.GDICT_EARLY_ROLES]:
-                self.bot.gdict[gid][sb.GDICT_EARLY_ROLES].append(roleid)
-                await ctx.send(f"{roleid} added to early roles.")
-                
-          elif args[1] == 'remove':
-            for rolestr in args[2:]:
-              roleid = int(rolestr)
-              if rolestr in self.bot.gdict[gid][sb.GDICT_EARLY_ROLES]:
-                self.bot.gdict[gid][sb.GDICT_EARLY_ROLES].remove(roleid)
-                await ctx.send(f"{roleid} removed from early roles.")
-          
-          elif args[1] == 'set':
-            roleids = [int(rolestr) for rolestr in args[2:]]
-            self.bot.gdict[gid][sb.GDICT_EARLY_ROLES] = roleids
-            await ctx.send(f"Early role IDs set to {roleids}")
-            
-          else:
-            await ctx.send("Invalid add|remove|set given.")
-        except ValueError:
-          await ctx.send("Argument must be an integer.")
-          return
-            
-      
-      else:
-        await ctx.send("Invalid role type given.")
+      try:
+        role = ctx.guild.get_role(int(args[1]))
+      except ValueError:
+        await ctx.send("Role ID must be an integer.")
         return
       
-      self.bot.save_db()
+      if role is None:
+        await ctx.send(f"Role with ID `{args[1]}` not found.")
+        return
 
-    elif mainarg == 'susproof':
+      for dlist in dungeons.dungeonlist:
+        if args[0] in dungeons.dungeonlist[dlist]:
+          await ctx.send(embed=discord.Embed(description=f"Role ping for {dungeons.dungeonlist[dlist][args[0]].name} set to {role.mention}"))
+          self.bot.save_db()
+          break
+
+    elif mainarg in sb.GDICT_CHANNELS:
       if len(args) < 1:
         await ctx.send('Invalid amount of arguments.')
         return
 
-      try:
-        ch: discord.TextChannel = ctx.guild.get_channel(int(args[0]))
-      except:
-        await ctx.send('Argument must be an integer.')
-        return
-
-      if not ch or ch.type != discord.ChannelType.text:
-        await ctx.send(f'Channel ID #{args[0]} not found, or is not a text channel.')
-        return
-
-      await ctx.send(f'Suspension proof channel set to {ch.mention}.')
-      self.bot.gdict[gid][sb.GDICT_SUSPROOF_CH] = ch.id
-      self.bot.save_db()
-
-    elif mainarg == 'runinfo':
-      if len(args) < 1:
-        await ctx.send('Invalid amount of arguments.')
-        return
-
-      try:
-        ch: discord.TextChannel = ctx.guild.get_channel(int(args[0]))
-      except:
-        await ctx.send('Argument must be an integer.')
-        return
-
-      if not ch or ch.type != discord.ChannelType.text:
-        await ctx.send(f'Channel ID #{args[0]} not found, or is not a text channel.')
-        return
-
-      await ctx.send(f'Run info channel set to {ch.mention}.')
-      self.bot.gdict[gid][sb.GDICT_RUNINFO_CH] = ch.id
-      self.bot.save_db()
+      if self._setup_channel(ctx, gid, mainarg, args[0]):
+        self.bot.save_db()
 
     elif mainarg == 'deafcheck':
       if len(args < 2):
@@ -376,7 +373,7 @@ class AdminCmds(commands.Cog, name="Admin Commands"):
       pass
     
     else:
-      await ctx.send('Invalid operation. Options are `debug, role, deafcheck, susproof, runinfo, afkrelevancy, section`.')
+      await ctx.send(f'Invalid operation. Options are `debug, role, deafcheck, {sb.GDICT_CHANNELS}, afkrelevancy, dungeonping, section`.')
     pass
   
   async def do_exit(self):

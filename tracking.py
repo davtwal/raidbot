@@ -18,7 +18,7 @@ import discord
 from discord.ext import commands
 
 import dungeons
-from dungeons import SHATTERS_DNAME, FUNGAL_DNAME, OSANC_DNAME, VOID_DNAME, CULT_DNAME, NEST_DNAME, get
+from dungeons import SHATTERS_DNAME, HARDSHATTS_DNAME, FUNGAL_DNAME, OSANC_DNAME, VOID_DNAME, CULT_DNAME, NEST_DNAME, get
 from globalvars import get_manager_roles
 
 TRACKED_DUNGEONS = [SHATTERS_DNAME, OSANC_DNAME, VOID_DNAME, CULT_DNAME, FUNGAL_DNAME, NEST_DNAME]
@@ -186,7 +186,7 @@ class Tracker:
       user_ids = [str(user.id) for user in users]
 
       if guild_id == SHATTERS_DISCORD_ID:
-        if d_code == SHATTERS_DNAME:
+        if d_code == SHATTERS_DNAME or d_code == HARDSHATTS_DNAME:
           with open(self.RUN_TRACK_FILE.format(SHATTERS_DISCORD_ID), 'a') as f:
             self.bot.log("Logging run in run file.")
             f.write(f"{self._unfix_ts(time.time())} {leader.id} {len(users)}\n")

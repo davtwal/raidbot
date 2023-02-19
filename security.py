@@ -316,15 +316,11 @@ class SecurityCog(commands.Cog, name="Security Commands"):
       else:
         embed = discord.Embed(title="Active Suspensions", description="", color=discord.Color.dark_gray())
         if len(active) > 0:
-          count = 0
           for ban in active:
-            count += 1
             banuser: discord.Member = ctx.guild.get_member(ban[0])
             moduser: discord.Member = ctx.guild.get_member(ban[2])
             embed.description += f"{banuser.mention if banuser else f'`{ban[0]}`'} suspended by {moduser.mention if moduser else f'`{ban[2]}`'} "
             embed.description += f"{'(perma)' if ban[3] is True else f'expires <t:{int(ban[3])}:R>'}:```{ban[1]}```"
-            if count > 15:
-              break
         else:
           embed.description = "There are no currently active vet bans."
 

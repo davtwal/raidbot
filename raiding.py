@@ -8,7 +8,7 @@ import re
 from globalvars import RaidingSection, get_staff_roles, get_event_roles, get_raid_roles, confirmation, get_veteran_roles
 
 import dungeons
-from hc_afk_helpers import channel_checks, create_list, dungeon_checks, get_voice_ch, ask_location
+from hc_afk_helpers import can_lead_hardmode, channel_checks, create_list, dungeon_checks, get_voice_ch, ask_location
 from hc_afk_helpers import DCHECK_LIST, DCHECK_INVALID
 from shattersbot import ShattersBot
 
@@ -125,19 +125,35 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
 
   @commands.command(name='hc')
   @commands.has_any_role(*get_raid_roles())
-  async def raid_headcount(self, ctx: commands.Context, ignored=None):
-    """[ARL+] Starts up a Shatters headcount. Cannot be used in the Events section. (Note: ViBot requires a `s` as an option for headcounts; it is optional here.)"""
+  async def raid_headcount(self, ctx: commands.Context, hm:str=None):
+    """[ARL+] Starts up a Shatters headcount. Cannot be used in the Events section.
+    Optionally, you can add an "h" or "hm" to the end of the command (e.g. "^hc h") to make a hardmode headcount.
+    Any other type will be ignored.
+    """
     #if ctx.author.id != 170752798189682689: 
     #  await ctx.send('Leading Shatters is currently disabled. Soon (tm)')
     #  return
 
     cont, section = await channel_checks(ctx)
-    
-    if cont:   
-      if section.dungeon_allowed(dungeons.SHATTERS_DNAME):
-        await self.headcount_main(ctx, dungeons.get(dungeons.SHATTERS_DNAME), section)
+
+    dungeon = None
+    if hm and hm.lower()[0] == 'h':
+      if can_lead_hardmode(ctx):
+        dungeon = dungeons.HARDSHATTS_DNAME
       else:
-        await ctx.send("You cannot put up a headcount for `shatters` in this section.")
+        dungeon = dungeons.HARDSHATTS_DNAME
+    else:
+      dungeon = dungeons.SHATTERS_DNAME
+
+    if dungeon is None:
+      await ctx.send("You cannot put up a hard mode headcount.")
+      return
+
+    if cont:   
+      if section.dungeon_allowed(dungeon):
+        await self.headcount_main(ctx, dungeons.get(dungeon), section)
+      else:
+        await ctx.send(f"You cannot put up a headcount for `{dungeon}` in this section.")
     
   ######################
   ### AFK CHECKS
@@ -412,10 +428,6 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
     cont, section = await channel_checks(ctx)
     
     if cont:
-      if section.dungeon_allowed(dungeons.SHATTERS_DNAME) is False:
-        await ctx.send("You cannot make a Shatters AFK check in this section.")
-        return
-
       self.bot.log(f"AFK command {ctx.author.display_name}: ^afk {' '.join(args)}")
       lazy = False
       loc = "Not Set"
@@ -429,17 +441,14 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
           await ctx.send("Invalid type detected. Please use an valid option.")
           return
 
-        if typeclause[0] == 'h':
-          for role in get_veteran_roles():
-            if role in [r.name for r in ctx.author.roles]:
-              dungeon = dungeons.get(dungeons.HARDSHATTS_DNAME)
-              assert dungeon
-
-          if dungeon is None:
-            await ctx.send("You are not allowed to lead Hard Mode runs as you are not a VRL.")
+        if typeclause[0] == 'h': #Only check for the first character to be h
+          if can_lead_hardmode(ctx) and section.dungeon_allowed(dungeons.HARDSHATTS_DNAME):
+            dungeon = dungeons.get(dungeons.HARDSHATTS_DNAME)
+          else:
+            await ctx.send("You cannot put up hard mode AFK checks.")
             return
 
-          if len(typeclause) > 1 and typeclause[1] == 'z' or typeclause[1] == 'l':
+          if len(typeclause) > 1 and (typeclause[1] == 'z' or typeclause[1] == 'l'):
             lazy = True
 
           args_parsed += 1
@@ -462,6 +471,10 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
         
           if args_parsed < len(args):
             loc = ' '.join(args[args_parsed:])
+
+      if section.dungeon_allowed(dungeon) is False:
+        await ctx.send("You cannot make a Shatters AFK check in this section.")
+        return
 
       await self.afk_main(ctx, dungeon, section, lazy, cap, loc)
   

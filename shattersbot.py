@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 import pytz
 import asyncio
 import json
@@ -27,6 +27,9 @@ GDICT_DEAFCHECK_WARNTIME = 'deafch_warn'      # Amount of time after deafening w
 GDICT_DEAFCHECK_SUSTIME = 'deafch_susp'       # Amount of time after being warned where the RL is notified (s).
 GDICT_AFK_RELEVANTTIME = 'afk_relevant_time'  # Amount of time an AFK check is considered 'relevant' for a voice channel.
 
+#dungeon related
+GDICT_DUNGEON_PING_ROLE = 'dungeonpings'
+
 # raiding sections
 GDICT_SECTIONS = 'sections'
 GDICT_SECTION_EVENTS = 'event'
@@ -48,8 +51,22 @@ DEFAULT_GUILD_DICT = {
   GDICT_DEAFCHECK_SUSTIME: 90,
   GDICT_AFK_RELEVANTTIME: 30 * 60, # 30 minutes
 #  GDICT_DUNGEON_ROLE_WHITELIST: {},
+  GDICT_DUNGEON_PING_ROLE: {},
   GDICT_SECTIONS: {}
 }
+
+GDICT_INDIV_ROLES = [
+  GDICT_RAIDSTREAM_ROLE,
+  GDICT_RAIDER_ROLE,
+  GDICT_VETRAIDER_ROLE,
+  GDICT_VETBANNED_ROLE,
+  GDICT_NITRO_ROLE
+]
+
+GDICT_CHANNELS = [
+  GDICT_SUSPROOF_CH,
+  GDICT_RUNINFO_CH
+]
 
 class ShattersBot(commands.Bot):
   def __init__(self):
@@ -214,6 +231,18 @@ class ShattersBot(commands.Bot):
 
   def get_runinfo_channel(self, guild_id) -> int:
     return self.gdict[guild_id][GDICT_RUNINFO_CH]
+
+  def get_dungeon_ping_role_list(self, guild_id) -> Dict[str, int]:
+    return self.gdict[guild_id][GDICT_DUNGEON_PING_ROLE]
+
+  def get_dungeon_ping_role(self, guild_id, dcode) -> Optional[discord.Role]:
+    if dcode not in self.gdict[guild_id][GDICT_DUNGEON_PING_ROLE]:
+      return None
+    
+    if self.get_guild(guild_id) is None:
+      return None
+    
+    return self.get_guild(guild_id).get_role(self.gdict[guild_id][GDICT_DUNGEON_PING_ROLE][dcode])
 
   def get_section(self, guild_id, name) -> RaidingSection:
     try:

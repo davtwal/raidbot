@@ -24,6 +24,20 @@ sustext = """
 
 sussy_cooldown = []
 
+specials = {
+  278663969256898561: "ALL HAIL JUSTIN THE CHOSEN ONE, lest ye be haunted by Jurtin",
+  746255416765186058: "hi :)",
+  182278583035756545: "Brillo please, stop dying and lead runs :(",
+  277638871599153153: "daddy 🥺",
+  498196613949554690: "love you hokie <3",
+  175649307720941568: "👁",
+  324773615369322497: "nya~~",
+  158765430167568385: "I'm *whining* that *whalez* *whalked* away :(",
+  217326792539766797: "certified TGoober message",
+  198224418667888640: "manafeet 😳",
+  320866007633625088: "stop being sus"
+}
+
 import asyncio
 class RunsWhenCog(commands.Cog):
   def __init__(self, bot):
@@ -66,8 +80,8 @@ class RunsWhenCog(commands.Cog):
 
     for msg in findme:
       if message.content.lower().find(msg) != -1:
-        if message.author.id == 278663969256898561:
-          await message.reply("Justin please come back I'm begging you we need you you are the chosen one :(((((")
+        if message.author.id in specials:
+          await message.reply(specials[message.author.id])
           return
 
         rl_roles = get_raid_roles()
