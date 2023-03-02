@@ -237,9 +237,11 @@ class ShattersBot(commands.Bot):
 
   def get_dungeon_ping_role(self, guild_id, dcode) -> Optional[discord.Role]:
     if dcode not in self.gdict[guild_id][GDICT_DUNGEON_PING_ROLE]:
+      print(f"Dungeon get ping role no dcode: {dcode} in {self.gdict[guild_id][GDICT_DUNGEON_PING_ROLE]}")
       return None
     
     if self.get_guild(guild_id) is None:
+      print("Dungeon get ping role no guild")
       return None
     
     return self.get_guild(guild_id).get_role(self.gdict[guild_id][GDICT_DUNGEON_PING_ROLE][dcode])

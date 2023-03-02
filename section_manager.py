@@ -103,16 +103,21 @@ class SectionAFKCheckManager:
       return False
     pass
   
-  async def try_convert_hc_to_afk(self, hc: hcm.Headcount, voice_ch: discord.VoiceChannel, lazy:bool, location: str) -> bool:
+  async def try_convert_hc_to_afk(self, hc: hcm.Headcount, voice_ch: discord.VoiceChannel, lazy:bool, location: str, dungeon_override:str=None) -> bool:
+    dungeon = dungeons.get(dungeon_override) if dungeon_override else hc.dungeon
+    if dungeon is None:
+      await hc.ctx.send(f"Error: DCode `{dungeon_override}` in override returned no dungeon. Please contact the bot dev.")
+      return False
+
     for auth_id in self.active_afks:
-      if self.active_afks[auth_id].dungeon.code == hc.dungeon.code:
+      if self.active_afks[auth_id].dungeon.code == dungeon.code:
         if self.active_afks[auth_id].status != ac.AFKCheck.STATUS_POST:
-          self._log(f'{hc.owner().display_name} attempted to create a {hc.dungeon.name} AFK while one exists.')
-          await hc.ctx.send(f"There is already a(n) {hc.dungeon.name} AFK check up in this section. Please try again after it's closed.")
+          self._log(f'{hc.owner().display_name} attempted to create a {dungeon.name} AFK while one exists.')
+          await hc.ctx.send(f"There is already a(n) {dungeon.name} AFK check up in this section. Please try again after it's closed.")
           return False
 
     await hc._finalize_convert(lazy)
-    self.active_afks[hc.owner().id] = ac.AFKCheck(self, hc.bot, hc.ctx, hc.status_ch, voice_ch, hc.dungeon, location)
+    self.active_afks[hc.owner().id] = ac.AFKCheck(self, hc.bot, hc.ctx, hc.status_ch, voice_ch, dungeon, location)
     await self.active_afks[hc.owner().id].start_afk(lazy)
     
     self.remove_headcount(hc.owner().id)

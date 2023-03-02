@@ -170,6 +170,10 @@ class AFKCheck:
   
   async def start_afk(self, lazy):
     here_ping = '`@here`' if self.bot.is_debug() else '@here'
+    ping_role: discord.Role = self.bot.get_dungeon_ping_role(self.ctx.guild.id, self.dungeon.code)
+    if ping_role:
+      here_ping += f" `{ping_role.mention}`" if self.bot.is_debug() else f" {ping_role.mention}"
+    
     self.join_emoji = self.bot.get_emoji(self.dungeon.react_portals[0])
     
     # Create auto-end/open timers

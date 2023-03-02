@@ -7,7 +7,7 @@ from discord.ext import commands
 
 import dungeons
 from globalvars import REACT_X, REACT_CHECK, REACT_PLAY
-from hc_afk_helpers import get_field_index, ask_location, get_voice_ch
+from hc_afk_helpers import is_manager, get_field_index, ask_location, get_voice_ch, can_lead_hardmode
 
 REACT_WASTE = '🗑'
 
@@ -62,13 +62,23 @@ class Headcount:
       self.panel_embed.add_field(inline=True, name=label, value='None')    
     
     here_ping = '`@here`' if self.bot.is_debug() else '@here'
+    ping_role: discord.Role = self.bot.get_dungeon_ping_role(self.ctx.guild.id, self.dungeon.code)
+    if ping_role:
+      here_ping += f" `{ping_role.mention}`" if self.bot.is_debug() else f" {ping_role.mention}"
+
     self.status_msg = self.status_ch.send(content=HC_ANNOUNCE_STR.format(here_ping, self.dungeon.name, self.owner().mention), embed=self.status_embed)
     
-    self.panel_msg = self.ctx.send(embed=self.panel_embed, view=HeadcountPanelView(self))
+    ### Specifically for shatters:
+    add_hmconv = None
+    if self.dungeon.code == dungeons.HARDSHATTS_DNAME:
+      add_hmconv = False
+    elif self.dungeon.code == dungeons.SHATTERS_DNAME and can_lead_hardmode(self.ctx):
+      add_hmconv = True
+
+    self.panel_msg = self.ctx.send(embed=self.panel_embed, view=HeadcountPanelView(self, add_hmconv))
     
     self.panel_msg = await self.panel_msg
     self.status_msg = await self.status_msg
-    
     
     self.react_task = asyncio.create_task(self._add_reactions())
     self.loop_task = asyncio.create_task(self._react_wait_loop())
@@ -185,7 +195,7 @@ class Headcount:
     await self.status_msg.edit(content='Headcount converted.', embed=self.status_embed)
       
 
-  async def _do_convert(self, lazy):
+  async def _do_convert(self, lazy: bool, dungeon_override=None):
     location = await ask_location(self.bot, self.ctx)
     if location is None:
       self.status = self.STATUS_GATHERING
@@ -198,13 +208,14 @@ class Headcount:
     
     # try_convert calls _finalize_convert for us
     # as that function can also be called from a command.
-    success = await self.manager.try_convert_hc_to_afk(self, voice_ch, lazy, location)
+    success = await self.manager.try_convert_hc_to_afk(self, voice_ch, lazy, location,
+                                                       dungeon_override=dungeon_override)
     
     if not success:
       self.status = self.STATUS_GATHERING
   
   # This needs to return fast so the interaction doesn't fail.
-  async def convert_to_afk(self, lazy):
+  async def convert_to_afk(self, lazy:bool, dungeon_override=None):
     if self.bot.pending_shutdown:
       return
 
@@ -212,14 +223,117 @@ class Headcount:
       return
     
     self.status = self.STATUS_CONVERTING
-    asyncio.create_task(self._do_convert(lazy))
+    asyncio.create_task(self._do_convert(lazy, dungeon_override))
     pass  
   pass
 
-class HeadcountPanelView(discord.ui.View):
-  def __init__(self, headcount: Headcount):
+class HeadcountPanelTypeConvertSelect(discord.ui.Select):
+  LAZY_VALUE = "lazy"
+  NORMAL_VALUE = "normal"
+  def __init__(self, headcount: Headcount, hm=False):
+    super().__init__(placeholder=f'Convert ({"HM" if hm else "Non-HM"})', row=1, min_values=1, max_values=1)
+    self.add_option(label=f"Convert to {'Hard Mode' if hm else 'Non-Hard Mode'}", value=self.NORMAL_VALUE)
+    self.add_option(label=f"Convert to {'Hard Mode' if hm else 'Non-Hard Mode'} (Lazy)", value=self.LAZY_VALUE)
+    self.headcount = headcount
+    self.override = dungeons.HARDSHATTS_DNAME if hm else dungeons.SHATTERS_DNAME
+    pass
+
+  async def callback(self, interaction: discord.Interaction):
+    if interaction.user.id != self.headcount.owner().id:
+      await interaction.response.send_message(content="You are not the owner of this AFK check.", ephemeral=True)
+      return
+    
+    await self.headcount.convert_to_afk(self.values[0] == self.LAZY_VALUE, dungeon_override=self.override)
+    pass
+
+class HeadcountPanelConvertLazyFollowup(discord.ui.View):
+  def __init__(self, headcount: Headcount, dungeon_override=None):
     super().__init__(timeout=None)
     self.headcount = headcount
+    self.dungeon_override = dungeon_override
+
+  @discord.ui.button(label='Normal', style=discord.ButtonStyle.green, emoji=REACT_CHECK)
+  async def convert_plain(self, button: discord.ui.Button, interaction: discord.Interaction):
+    if interaction.user.id != self.headcount.owner().id or not is_manager(interaction.user):
+      await interaction.response.send_message(content="You are not the owner of this AFK check.", ephemeral=True)
+      return
+
+    await interaction.message.delete()
+    await self.headcount.convert_to_afk(False, dungeon_override=self.dungeon_override)
+    pass
+  
+  @discord.ui.button(label='Lazy', style=discord.ButtonStyle.blurple, emoji=REACT_PLAY)
+  async def convert_lazy(self, button: discord.ui.Button, interaction: discord.Interaction):
+    if interaction.user.id != self.headcount.owner().id:
+      await interaction.response.send_message(content="You are not the owner of this AFK check.", ephemeral=True)
+      return
+    
+    await interaction.message.delete()
+    await self.headcount.convert_to_afk(True, dungeon_override=self.dungeon_override)
+    pass
+  
+  @discord.ui.button(label='Cancel', style=discord.ButtonStyle.gray, emoji=REACT_WASTE)
+  async def abandon(self, button: discord.ui.Button, interaction: discord.Interaction):
+    if interaction.user.id != self.headcount.owner().id:
+      await interaction.response.send_message(content="You are not the owner of this AFK check.", ephemeral=True)
+      return
+    
+    await interaction.message.delete()
+    pass
+
+class HeadcountPanelButton(discord.ui.Button):
+  def __init__(self, headcount: Headcount, btype=0):
+    # Btype:
+    # 0 = Normal
+    # 1 = Lazy
+    # 2 = Convert to HM
+    # 3 = Convert to Normal Shatters
+    # 4 = Abandon
+    if btype == 0:
+      super().__init__(label='Convert', style=discord.ButtonStyle.green,
+                       emoji=REACT_CHECK, timeout=None)
+    
+    elif btype == 1:
+      super().__init__(label='Convert (Lazy)', style=discord.ButtonStyle.blurple,
+                       emoji=REACT_PLAY, timeout=None)
+
+    elif btype == 4:
+      super().__init__(label='Abandon', style=discord.ButtonStyle.grey,
+                       emoji=REACT_WASTE, timeout=None)
+      
+    self.headcount = headcount
+    self.btype = btype
+
+  async def callback(self, interaction: discord.Interaction):
+    if interaction.user.id != self.headcount.owner().id or is_manager:
+      await interaction.response.send_message(content="You are not the owner of this AFK check.", ephemeral=True)
+      return
+    
+    if self.btype == 0:
+      await self.headcount.convert_to_afk(False)
+
+    elif self.btype == 1:
+      await self.headcount.convert_to_afk(True)
+    
+    elif self.btype == 2:
+      await interaction.response.send_message("What style of AFK check for your Hard Mode AFK?",
+                                              view=HeadcountPanelConvertLazyFollowup(self.headcount,
+                                                                                     dungeons.HARDSHATTS_DNAME))
+      pass
+
+    elif self.btype == 3:
+      pass
+
+    elif self.btype == 4:
+      self.stop()
+      await self.headcount.abandon()
+
+class HeadcountPanelView(discord.ui.View):
+  def __init__(self, headcount: Headcount, add_hmconv=None):
+    super().__init__(timeout=None)
+    self.headcount = headcount
+    if add_hmconv is not None:
+      self.add_item(HeadcountPanelTypeConvertSelect(headcount, add_hmconv))
     pass
   
   @discord.ui.button(label='Convert', style=discord.ButtonStyle.green, emoji=REACT_CHECK)

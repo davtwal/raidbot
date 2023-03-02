@@ -278,6 +278,7 @@ class AdminCmds(commands.Cog, name="Admin Commands"):
 
       for dlist in dungeons.dungeonlist:
         if args[0] in dungeons.dungeonlist[dlist]:
+          self.bot.gdict[gid][sb.GDICT_DUNGEON_PING_ROLE][args[0]] = int(args[1])
           await ctx.send(embed=discord.Embed(description=f"Role ping for {dungeons.dungeonlist[dlist][args[0]].name} set to {role.mention}"))
           self.bot.save_db()
           break

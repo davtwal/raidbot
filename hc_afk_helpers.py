@@ -5,7 +5,7 @@ import discord
 from discord.ext import commands
 
 import dungeons
-from globalvars import get_veteran_roles, find_channel, REACT_X, REACT_CHECK, RaidingSection
+from globalvars import get_manager_roles, get_veteran_roles, find_channel, REACT_X, REACT_CHECK, RaidingSection
 #def check_vetleader(ctx: commands.Context):
 #  """Checks to see if the user is a veteran leader.
 #
@@ -21,7 +21,13 @@ from globalvars import get_veteran_roles, find_channel, REACT_X, REACT_CHECK, Ra
 #      
 #  return False
 
-async def can_lead_hardmode(ctx: commands.Context):
+async def is_manager(member: discord.Member) -> bool:
+  for role in member.roles:
+    if role.name in get_manager_roles():
+      return True
+  return False
+
+def can_lead_hardmode(ctx: commands.Context):
   hm_role = ctx.guild.get_role(1071247034583097384) # HM Leader
   if hm_role and hm_role in ctx.author.roles:
     return True
