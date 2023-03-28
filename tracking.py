@@ -459,7 +459,7 @@ class Tracker:
   ####################################
   # Acessor Functions
 
-  def is_suspended(self, user_id:int, guild_id: int) -> Tuple[Optional[float|bool], Optional[str], Optional[int], Optional[str]]:
+  def is_suspended(self, user_id:int, guild_id: int) -> Tuple[Optional[Union[float, bool]], Optional[str], Optional[int], Optional[str]]:
     """
     Checks to see if a user has an active suspension.
     Doesn't affect the database.
@@ -494,7 +494,7 @@ class Tracker:
     except mysql.connector.errors.DatabaseError as e:
       return None, None, None, f"Database error: {e.msg}"
 
-  def get_user_suspension_history(self, user_id:int, guild_id:int) -> Tuple[List[Tuple[bool, str, int, int, float|bool]], str]:
+  def get_user_suspension_history(self, user_id:int, guild_id:int) -> Tuple[List[Tuple[bool, str, int, int, Union[float, bool]]], str]:
     """
     Gets the suspension history of a user.
     Params:

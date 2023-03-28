@@ -235,8 +235,7 @@ R_CSHIELD = 924776847298920468
 R_FUNGAL = 924780902591119422
 
 R_RUSH = 924782643797704705
-# TODO: Make this not dependent on Shatters server
-R_SWITCHRUSH = 888889860964892693
+R_SWITCHRUSH = 1090131823289454653
 
 R_WARRIOR = 924760732170600469
 R_PALADIN = 924760732195758100
@@ -278,6 +277,8 @@ FUNGAL_DNAME = 'fungal'
 NEST_DNAME = 'nest'
 CULT_DNAME = 'cult'
 VOID_DNAME = 'void'
+STEAMWORKS_DNAME = 'steamworks'
+MVILLAGE_DNAME = 'mv'
 
 shatters_images = [
   "https://cdn.discordapp.com/attachments/901639195104280617/959566552120823858/archmage_icecharge.gif",
@@ -295,6 +296,12 @@ shatts_hardmode_images = [
   "https://cdn.discordapp.com/attachments/901639195104280617/960009578836271114/Stone_Idol.png",
   "https://cdn.discordapp.com/attachments/901639195104280617/960009579079536670/Eye_of_the_King_Spiral.gif",
   "https://cdn.discordapp.com/attachments/901639195104280617/1072755653828952154/rdW4cUj.png" # void phantasm
+]
+
+moonlight_images = [
+  "https://cdn.discordapp.com/attachments/748200247716479159/1087278346255208478/KaguyaMobileAttack.gif",
+  "https://cdn.discordapp.com/attachments/748200247716479159/1087278346922119168/MikoMobileAttack.gif",
+  "https://cdn.discordapp.com/attachments/748200247716479159/1087278347379281982/GenjiMobileAttack.gif"
 ]
 
 dungeonlist: Dict[str, Dict[str, Dungeon]] = {
@@ -351,7 +358,9 @@ dungeonlist: Dict[str, Dict[str, Dungeon]] = {
     HARDSHATTS_DNAME: HardModeShattsDungeon('Hard Mode Shatters', [924809116755587112], [924723993070682202], {R_SWITCHRUSH: [3, 'Rusher'], R_FUNGAL: [2, 'Supreme Priest'], R_SLOW: [2, None]}, [R_MSEAL, R_CSHIELD, R_TRICKSTER], standard_buffs, 2, shatts_hardmode_images),
     CULT_DNAME: Dungeon('Cultist Hideout',  [924711683308519515], [924723992621903883], {R_RUSH: [2, None]}, [R_DAZE, R_TRICKSTER], [R_FUNGAL, R_MSEAL] + standard_buffs),
     VOID_DNAME: VoidDungeon('Void',         [924711683161739324], [924723992621903883, 924723993808887849], None, [R_FUNGAL, R_MSEAL], standard_buffs),
-    OSANC_DNAME: SanctuaryDungeon('Oryx\'s Sanctuary', [924728919465267232], [924728746785775706, 924723993272004649, 924723992730927157, 924723993079074947], None, [R_TRICKSTER, R_FUNGAL], [R_MSEAL, R_MYSTIC] + standard_buffs, 2, auto_close=False)
+    OSANC_DNAME: SanctuaryDungeon('Oryx\'s Sanctuary', [924728919465267232], [924728746785775706, 924723993272004649, 924723992730927157, 924723993079074947], None, [R_TRICKSTER, R_FUNGAL], [R_MSEAL, R_MYSTIC] + standard_buffs, 2, auto_close=False),
+    STEAMWORKS_DNAME: Dungeon('Kogbold Steamworks', [1088947113695653989], [1088947201847345212], None, None, standard_buffs, 1),
+    MVILLAGE_DNAME: Dungeon('Moonlight Village', [1090132644186042438], [1090132601559318669], {R_FUNGAL: [2, 'Supreme Priest']}, [R_MSEAL], standard_buffs, 1, moonlight_images)
   },
   'Court': {
     'shaitan': Dungeon('Lair of Shaitain',        [924745735910604820], [924744714425602078], None, [R_MSEAL], standard_buffs),

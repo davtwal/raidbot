@@ -26,6 +26,7 @@ GDICT_RUNINFO_CH = 'runinfo'
 GDICT_DEAFCHECK_WARNTIME = 'deafch_warn'      # Amount of time after deafening where a raider gets warned (s).
 GDICT_DEAFCHECK_SUSTIME = 'deafch_susp'       # Amount of time after being warned where the RL is notified (s).
 GDICT_AFK_RELEVANTTIME = 'afk_relevant_time'  # Amount of time an AFK check is considered 'relevant' for a voice channel.
+GDICT_EVENTPING_TIMEOUT = 'eventping_timeout' # Amount of time allowed in between event pings.
 
 #dungeon related
 GDICT_DUNGEON_PING_ROLE = 'dungeonpings'
@@ -50,6 +51,7 @@ DEFAULT_GUILD_DICT = {
   GDICT_DEAFCHECK_WARNTIME: 2,
   GDICT_DEAFCHECK_SUSTIME: 90,
   GDICT_AFK_RELEVANTTIME: 30 * 60, # 30 minutes
+  GDICT_EVENTPING_TIMEOUT: 2 * 60 + 30, # 2.5 minutes
 #  GDICT_DUNGEON_ROLE_WHITELIST: {},
   GDICT_DUNGEON_PING_ROLE: {},
   GDICT_SECTIONS: {}
@@ -69,7 +71,7 @@ GDICT_CHANNELS = [
 ]
 
 class ShattersBot(commands.Bot):
-  def __init__(self):
+  def __init__(self, cmd_prefix):
     self.gdict: Dict[int, Dict[str, Any]] = {}
     self.managers: Dict[int, Dict[str, SectionAFKCheckManager]] = {}
     self.db_connections: Dict[int, Any] = {}
@@ -82,9 +84,11 @@ class ShattersBot(commands.Bot):
     intents = discord.Intents.default()
     intents.members = True
     intents.messages = True
-    intents.message_content = True
+
+    if hasattr(intents, 'message_content'):
+      intents.message_content = True
     self.log("Booting up")
-    super().__init__(command_prefix="^", intents=intents)
+    super().__init__(command_prefix=cmd_prefix, intents=intents)
   
   async def _log(self, logstr):
     try:

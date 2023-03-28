@@ -174,7 +174,7 @@ class AdminCmds(commands.Cog, name="Admin Commands"):
   @commands.command(name='setup')
   @commands.has_any_role(*get_admin_roles())
   async def setup(self, ctx: commands.Context, mainarg=None, *args):
-    f"""[Admin+] Setup command.
+    """[Admin+] Setup command.
 
     Args:
         mainarg (str): Which setup command to use.
@@ -184,7 +184,7 @@ class AdminCmds(commands.Cog, name="Admin Commands"):
           Enables or disables debug mode.
     
         setup role <role name> role_id
-          Sets whatever role to the role id given. Roles are {sb.GDICT_INDIV_ROLES}.
+          Sets whatever role to the role id given.
             
         setup role early <add|remove|set> role_ids...
           Sets, adds, or removes from the early roles.
@@ -196,7 +196,7 @@ class AdminCmds(commands.Cog, name="Admin Commands"):
         
         setup <channel> <channel_id>
           Sets the channel ID for a given channel.
-          Channels are {sb.GDICT_CHANNELS}.
+          Channels available are viewable with ^view channels.
 
         setup deafcheck <warntime|susptime> <time>
           Sets the warning or suspension time for a detected deafen. Time is in seconds.

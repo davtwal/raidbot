@@ -21,10 +21,14 @@ from funnystuff import RunsWhenCog
 from shattersbot import ShattersBot
 from security import SecurityCog
 
-import random
-import re
+import sys
 
-bot = ShattersBot()
+if len(sys.argv) > 1:
+  cmd_prefix = "]"
+else:
+  cmd_prefix = "^"
+
+bot = ShattersBot(cmd_prefix)
 #bot = commands.Bot(command_prefix="^")
 
 def excepthook(*exc_info):
@@ -43,4 +47,8 @@ bot.add_cog(RaidingCmds(bot))
 bot.add_cog(RunsWhenCog(bot))
 bot.add_cog(SecurityCog(bot))
 
-bot.run(DISCORD_TOKEN)
+if len(sys.argv) > 1:
+  import os
+  bot.run(os.getenv("DEBUG_TOKEN"))
+else:
+  bot.run(DISCORD_TOKEN)

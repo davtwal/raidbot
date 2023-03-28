@@ -5,7 +5,7 @@ from typing import List, Dict, Optional, Tuple
 import asyncio
 import re
 
-from globalvars import RaidingSection, get_staff_roles, get_event_roles, get_raid_roles, confirmation, get_veteran_roles
+from globalvars import RaidingSection, get_staff_roles, get_event_roles, get_raid_roles, confirmation, get_manager_roles, get_veteran_roles
 
 import dungeons
 from hc_afk_helpers import can_lead_hardmode, channel_checks, create_list, dungeon_checks, get_voice_ch, ask_location
@@ -31,6 +31,7 @@ If you think this is a mistake or a non-issue, you can ignore this message (or `
 If you do not have suspension permissions, you can ping anyone who does to have them take care of this."""
 
 DEAFEN_THANK_UNDEAFEN = """Thank you for undeafening. Enjoy the raid!"""
+
 
 class RaidingCmds(commands.Cog, name='Raiding Commands'):
   def __init__(self, bot: ShattersBot):
@@ -126,8 +127,9 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
   @commands.command(name='hc')
   @commands.has_any_role(*get_raid_roles())
   async def raid_headcount(self, ctx: commands.Context, hm:str=None):
-    """[ARL+] Starts up a Shatters headcount. Cannot be used in the Events section.
+    """[ARL+] Starts up a headcount. Cannot be used in the Events section.
     Optionally, you can add an "h" or "hm" to the end of the command (e.g. "^hc h") to make a hardmode headcount.
+    Optionally, you can add an "m" or "mv" to make this a moonlight village headcount.
     Any other type will be ignored.
     """
     #if ctx.author.id != 170752798189682689: 
@@ -136,18 +138,17 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
 
     cont, section = await channel_checks(ctx)
 
-    dungeon = None
-    if hm and hm.lower()[0] == 'h':
-      if can_lead_hardmode(ctx):
-        dungeon = dungeons.HARDSHATTS_DNAME
-      else:
-        dungeon = dungeons.HARDSHATTS_DNAME
-    else:
-      dungeon = dungeons.SHATTERS_DNAME
-
-    if dungeon is None:
-      await ctx.send("You cannot put up a hard mode headcount.")
-      return
+    dungeon = dungeons.SHATTERS_DNAME
+    if hm:
+      if hm.lower()[0] == 'h':
+        if can_lead_hardmode(ctx):
+          dungeon = dungeons.HARDSHATTS_DNAME
+        else:
+          await ctx.send("You cannot put up a hard mode headcount.")
+          return
+        
+      elif hm.lower()[0] == 'm':
+        dungeon = dungeons.MVILLAGE_DNAME
 
     if cont:   
       if section.dungeon_allowed(dungeon):
@@ -280,6 +281,7 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
       await ctx.send("Erorr: Section status channel is None. Please contact an admin.")
       return None
     
+    print('made it 2')
     # Step 3: Tell the manager to start the AFK check.
     return await self.bot.managers[ctx.guild.id][raid_section.name].try_create_afk(self.bot, ctx, status_ch, voice_ch, dungeon, lazy, location)
   
@@ -414,6 +416,8 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
           - z/l/lazy : Lazy AFK check normal shatters.
           - h/hm     : Hard mode shatters. You must be a VRL+ to do hard mode.
           - hz/hl    : Hard mode, but with a lazy AFK check. You must be a VRL+ to do hard mode.
+          - mv       : Moonlight Village
+          - ml       : Moonlight Village (Lazy)
         
         A lazy AFK check is one where important reacts, such as keys, are moved into the channel first. Then, when the RL is ready,
         the channel is opened to the rest of the raiders.
@@ -432,7 +436,8 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
       lazy = False
       loc = "Not Set"
       cap = None
-      dungeon = None
+      dungeon = dungeons.SHATTERS_DNAME
+
       if len(args) > 0:
         args_parsed = 0
 
@@ -442,8 +447,8 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
           return
 
         if typeclause[0] == 'h': #Only check for the first character to be h
-          if can_lead_hardmode(ctx) and section.dungeon_allowed(dungeons.HARDSHATTS_DNAME):
-            dungeon = dungeons.get(dungeons.HARDSHATTS_DNAME)
+          if can_lead_hardmode(ctx):
+            dungeon = dungeons.HARDSHATTS_DNAME
           else:
             await ctx.send("You cannot put up hard mode AFK checks.")
             return
@@ -453,15 +458,23 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
 
           args_parsed += 1
 
+        elif typeclause[0] == 'm':
+          dungeon = dungeons.MVILLAGE_DNAME
+
+          if len(typeclause) > 1 and (typeclause[1] == 'l'):
+            lazy = True
+          
+          args_parsed += 1
+
         else:
-          dungeon = dungeons.get(dungeons.SHATTERS_DNAME)
-          assert dungeon
+          dungeon = dungeons.SHATTERS_DNAME
 
           if typeclause[0] in ['z', 'l']:
             lazy = True
 
           args_parsed += 1
-          
+        
+        ## 2: Check for cap and location
         if args_parsed < len(args):
           try:
             cap = int(args[args_parsed])        
@@ -472,8 +485,11 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
           if args_parsed < len(args):
             loc = ' '.join(args[args_parsed:])
 
-      if section.dungeon_allowed(dungeon) is False:
-        await ctx.send("You cannot make a Shatters AFK check in this section.")
+      dungeon = dungeons.get(dungeon)
+
+      print('made it')
+      if section.dungeon_allowed(dungeon.code) is False:
+        await ctx.send(f"You cannot make a {dungeon.name} AFK check in this section.")
         return
 
       await self.afk_main(ctx, dungeon, section, lazy, cap, loc)
@@ -525,8 +541,8 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
   ### OTHER COMMANDS
   ######################
 
-  @commands.command('poll')
-  @commands.has_any_role(*get_event_roles())
+  #@commands.command('poll')
+  #@commands.has_any_role(*get_event_roles())
   async def cmd_poll(self, ctx: commands.Context, polltype=None, *check_text):
     """
     [ERL+] Puts up a poll of a specific type. Use ^help poll to see options.
