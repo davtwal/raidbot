@@ -278,34 +278,6 @@ class RaidingSection:
   
   pass
 
-## OLD CODE
-#def get_channelpairs(guild_id):
-#  return gdict[guild_id][GDICT_CHANNELPAIRS]
-#
-#def get_clean_links(guild_id):
-#  return gdict[guild_id][GDICT_CLEANLINKS]
-#
-#def get_unlockables(guild_id):
-#  return gdict[guild_id][GDICT_UNLOCKABLES]
-#
-#def get_setcap_max(guild_id):
-#  return gdict[guild_id][GDICT_SETCAP_MAX]
-#
-#def get_setcap_min(guild_id):
-#  return gdict[guild_id][GDICT_SETCAP_MIN]
-#
-#def get_setcap_vetmax(guild_id):
-#  return gdict[guild_id][GDICT_SETCAP_VETMAX]
-#
-#def get_setcap_vetmin(guild_id):
-#  return gdict[guild_id][GDICT_SETCAP_VETMIN]
-#
-#def get_vetchannels(guild_id):
-#  return gdict[guild_id][GDICT_VETCHANNELS]
-#
-#def get_vetonlycmd(guild_id):
-#  return gdict[guild_id][GDICT_VETONLYCMD]
-
 def find_channel(channel_list, ch_id):
   for channel in channel_list:
     if channel.id == ch_id:

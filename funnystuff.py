@@ -25,17 +25,17 @@ sustext = """
 sussy_cooldown = []
 
 specials = {
-  278663969256898561: "ALL HAIL JUSTIN THE CHOSEN ONE, lest ye be haunted by Jurtin",
-  746255416765186058: "hi :)",
-  182278583035756545: "Brillo please, stop dying and lead runs :(",
-  277638871599153153: "daddy 🥺",
-  498196613949554690: "love you hokie <3",
-  175649307720941568: "👁",
-  324773615369322497: "nya~~",
-  158765430167568385: "I'm *whining* that *whalez* *whalked* away :(",
-  217326792539766797: "certified TGoober message",
-  198224418667888640: "manafeet 😳",
-  320866007633625088: "stop being sus"
+  278663969256898561: "ALL HAIL JUSTIN THE CHOSEN ONE, lest ye be haunted by Jurtin", # Justin
+  746255416765186058: "hi :)", # Lumpian
+  182278583035756545: "Brillo please, stop dying and lead runs :(", # Brillo
+  277638871599153153: "daddy 🥺", # Ddarken
+  498196613949554690: "love you hokie <3", #Hokieman
+  175649307720941568: "👁", # Heavydk
+  324773615369322497: "nya~~", # KryzCat
+  158765430167568385: "I'm *whining* that *whalez* *whalked* away :(", # Whalez
+  217326792539766797: "certified TGoober message", # TCosmo
+  198224418667888640: "manafeet 😳", # Manaphy
+  320866007633625088: "stop being sus" # Eichhorst
 }
 
 import asyncio

@@ -30,6 +30,7 @@ GDICT_EVENTPING_TIMEOUT = 'eventping_timeout' # Amount of time allowed in betwee
 
 #dungeon related
 GDICT_DUNGEON_PING_ROLE = 'dungeonpings'
+GDICT_DUNGEON_RL_ROLES = 'rlroles'
 
 # raiding sections
 GDICT_SECTIONS = 'sections'
@@ -54,6 +55,7 @@ DEFAULT_GUILD_DICT = {
   GDICT_EVENTPING_TIMEOUT: 2 * 60 + 30, # 2.5 minutes
 #  GDICT_DUNGEON_ROLE_WHITELIST: {},
   GDICT_DUNGEON_PING_ROLE: {},
+  GDICT_DUNGEON_RL_ROLES: {},
   GDICT_SECTIONS: {}
 }
 

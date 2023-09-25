@@ -39,6 +39,9 @@ def can_lead_hardmode(ctx: commands.Context):
   return False
   pass
 
+#def can_lead_dungeon(ctx: commands.Context, dungeon: dungeons.Dungeon):
+  
+
 class ConfirmView(discord.ui.View):
   def __init__(self):
     super().__init__(timeout=30)
