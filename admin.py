@@ -71,6 +71,9 @@ class AdminCmds(commands.Cog, name="Admin Commands"):
         
       embed.add_field(name="Dungeon Ping Roles", value=dungeon_pingroles_desc)
 
+      await ctx.send(embed=embed)
+      embed = discord.Embed()
+
       embed.add_field(name="Staff Roles", value=f"""
                   T0: {get_admin_roles()}
                   T1: {get_manager_roles()}
@@ -191,8 +194,12 @@ class AdminCmds(commands.Cog, name="Admin Commands"):
           Early roles will automatically get moved into the voice channel and given location
           as soon as they click the Join button.
 
-        setup dungeonping <dungeonname> <role ID>
+        setup dungeonping <dungeon> <role ID>
           Sets the ping role for a specific dungeon.
+
+        setup rlroles <dungeon> <role IDs>
+          Only allows those with one of the given roles to lead a given dungeon.
+          Managers (HRL/Admin+) are automatically allowed to lead all dungeons.
         
         setup <channel> <channel_id>
           Sets the channel ID for a given channel.
@@ -282,6 +289,25 @@ class AdminCmds(commands.Cog, name="Admin Commands"):
           await ctx.send(embed=discord.Embed(description=f"Role ping for {dungeons.dungeonlist[dlist][args[0]].name} set to {role.mention}"))
           self.bot.save_db()
           break
+
+    elif mainarg == 'rlroles':
+      if len(args) < 2:
+        await ctx.send("Invalid amount of arguments. Please provide a dungeon code and at least 1 role ID.")
+        return
+      
+      if dungeons.get(args[1]) is None:
+        await ctx.send(f"Invalid dungeon `{args[1]}`.")
+        return
+
+      try:
+        roles = enumerate([ctx.guild.get_role(int(args[i])) for i in range(1, len(args))])
+      except ValueError:
+        await ctx.send("Role IDs must be integers.")
+        return
+      
+      roles_nonechecked = [r for r in roles if r is not None]
+      if len(roles_nonechecked) < 1:
+        await ctx.send("No valid roles given.")
 
     elif mainarg in sb.GDICT_CHANNELS:
       if len(args) < 1:

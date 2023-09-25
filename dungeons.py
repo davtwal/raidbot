@@ -330,9 +330,10 @@ dungeonlist: Dict[str, Dict[str, Dungeon]] = {
     'machine': Dungeon('Machine',     [924709171511848970], [924723992802238536], None, None, standard_buffs)
   },
   'Epic': {
-    'ddocks': Dungeon('Docks',    [924713330805977098], [924723992944869396], None, [R_EXPOSE], buffs + [R_STUN, R_CURSE, R_ARMORBREAK]),
-    'wlab': Dungeon("Woodland",   [924710140006002759], [924723993792094238], None, None, standard_buffs),
-    'cdepths': Dungeon("Depths",  [924710140236668948], [924723992999366656], None, None, standard_buffs)
+    'ddocks': Dungeon('Deadwater Docks',      [924713330805977098], [924723992944869396], None, [R_EXPOSE], buffs + [R_STUN, R_CURSE, R_ARMORBREAK]),
+    'wlab': Dungeon("Woodland Labyrinth",     [924710140006002759], [924723993792094238], None, None, standard_buffs),
+    'cdepths': Dungeon("Crawling Depths",     [924710140236668948], [924723992999366656], None, None, standard_buffs),
+    'wetlands': Dungeon("Sulfurous Wetlands", [1088947115562123395], [1088947576604209162], None, None, standard_buffs)
   },
   'Event': {
     'beachzone': Dungeon('Beachzone',     [924711682973003807], [924723993083269170], None, None, standard_buffs),
