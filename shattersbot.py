@@ -31,6 +31,7 @@ GDICT_EVENTPING_TIMEOUT = 'eventping_timeout' # Amount of time allowed in betwee
 #dungeon related
 GDICT_DUNGEON_PING_ROLE = 'dungeonpings'
 GDICT_DUNGEON_RL_ROLES = 'rlroles'
+GDICT_EVENT_PING_ROLE = 'eventping'
 
 # raiding sections
 GDICT_SECTIONS = 'sections'
@@ -54,6 +55,7 @@ DEFAULT_GUILD_DICT = {
   GDICT_AFK_RELEVANTTIME: 30 * 60, # 30 minutes
   GDICT_EVENTPING_TIMEOUT: 2 * 60 + 30, # 2.5 minutes
 #  GDICT_DUNGEON_ROLE_WHITELIST: {},
+  GDICT_EVENT_PING_ROLE: '',
   GDICT_DUNGEON_PING_ROLE: {},
   GDICT_DUNGEON_RL_ROLES: {},
   GDICT_SECTIONS: {}
@@ -244,7 +246,7 @@ class ShattersBot(commands.Bot):
   def get_dungeon_ping_role(self, guild_id, dcode) -> Optional[discord.Role]:
     if dcode not in self.gdict[guild_id][GDICT_DUNGEON_PING_ROLE]:
       print(f"Dungeon get ping role no dcode: {dcode} in {self.gdict[guild_id][GDICT_DUNGEON_PING_ROLE]}")
-      return None
+      return self.gdict[guild_id][GDICT_EVENT_PING_ROLE]
     
     if self.get_guild(guild_id) is None:
       print("Dungeon get ping role no guild")

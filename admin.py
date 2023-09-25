@@ -40,12 +40,16 @@ class AdminCmds(commands.Cog, name="Admin Commands"):
   
   @commands.command(name='view')
   @commands.has_any_role(*get_admin_roles())
-  async def view(self, ctx: commands.Context, mainarg=None):
+  async def view(self, ctx: commands.Context, mainarg=None, guild=None):
     """[Admin+] View internal parts of the bot.
 
     Args:
         mainarg ([str]): What to view. Can be: roles, staffroles, sections, section_<sectionname>, hcs, or afks.
+        guild: guild ID to view. if none, is the current guild. can also be 'shatters'.
     """
+
+    gid = ctx.guild.id if guild is None else 451171819672698920 if guild == 'shatters' else guild
+
     if mainarg is None:
       await ctx.send("What to view. Can be: roles, staffroles, sections, section_<sectionname>, hcs, or afks.")
       return
@@ -58,15 +62,18 @@ class AdminCmds(commands.Cog, name="Admin Commands"):
 
       indiv_role_desc = ""
       for role in sb.GDICT_INDIV_ROLES:
-        indiv_role_desc += f"`{role}`: {self.bot.gdict[ctx.guild.id][role]}\n"
+        indiv_role_desc += f"`{role}`: {self.bot.gdict[gid][role]}\n"
       
-      indiv_role_desc += f"`early`: {self.bot.get_early_roles(ctx.guild.id)}\n"
+      indiv_role_desc += f"`early`: {self.bot.get_early_roles(gid)}\n"
 
       embed.add_field(name='Individual Roles', value=indiv_role_desc)
 
+      await ctx.send(embed=embed)
+      embed = discord.Embed()
+
       dungeon_pingroles_desc = ""
-      for dungeon in self.bot.get_dungeon_ping_role_list(ctx.guild.id):
-        role = self.bot.get_dungeon_ping_role(ctx.guild.id, dungeon)
+      for dungeon in self.bot.get_dungeon_ping_role_list(gid):
+        role = self.bot.get_dungeon_ping_role(gid, dungeon)
         dungeon_pingroles_desc += f"`{dungeon}`: {role.mention if role else 'None'}"
         
       embed.add_field(name="Dungeon Ping Roles", value=dungeon_pingroles_desc)
@@ -74,32 +81,35 @@ class AdminCmds(commands.Cog, name="Admin Commands"):
       await ctx.send(embed=embed)
       embed = discord.Embed()
 
-      embed.add_field(name="Staff Roles", value=f"""
+      embed.add_field(name="Staff Roles 1", value=f"""
                   T0: {get_admin_roles()}
                   T1: {get_manager_roles()}
                   T2a: {get_veteran_roles()}
                   T2b: {get_raid_roles()}
+                  """)
+      
+      embed.add_field(name="Staff Roles 2", value=f"""
                   T2c: {get_event_roles()}
                   T3a: {get_helper_roles()}
                   T3b: {get_vetcontrol_roles()}
-                  T3c: {get_security_roles()}
+                  T3c: {get_security_roles()}w
                   """)
       
       await ctx.send(embed=embed)
     
     elif mainarg == 'sections':
-      await ctx.send(f'```{self.bot.gdict[ctx.guild.id][sb.GDICT_SECTIONS].keys()}```')
+      await ctx.send(f'```{self.bot.gdict[gid][sb.GDICT_SECTIONS].keys()}```')
       
     elif mainarg == 'hcs':
       mngrs = self.bot.managers
-      await ctx.send(f'{[mngrs[ctx.guild.id][sect].active_hcs for sect in mngrs[ctx.guild.id]]}')
+      await ctx.send(f'{[mngrs[gid][sect].active_hcs for sect in mngrs[gid]]}')
     
     elif mainarg == 'afks':
       mngrs = self.bot.managers
-      await ctx.send(f'{[mngrs[ctx.guild.id][sect].active_afks for sect in mngrs[ctx.guild.id]]}')
+      await ctx.send(f'{[mngrs[gid][sect].active_afks for sect in mngrs[gid]]}')
     
     elif mainarg and len(mainarg) > 8 and mainarg[:8] == 'section_':
-      await ctx.send(f'```{self.bot.gdict[ctx.guild.id][sb.GDICT_SECTIONS][mainarg[8:]]}```')
+      await ctx.send(f'```{self.bot.gdict[gid][sb.GDICT_SECTIONS][mainarg[8:]]}```')
 
     else:
       await ctx.send("Invalid view option given.")
