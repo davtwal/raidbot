@@ -167,6 +167,10 @@ class RaidingCmds(commands.Cog, name='Raiding Commands'):
     susptime = self.bot.get_deafcheck_sustime(member.guild.id)
     susproof_ch = member.guild.get_channel(self.bot.get_susproof_channel(member.guild.id))
 
+    if afk_owner.id in self.bot.get_deafcheck_optout_list(afk_owner.guild.id):
+      # we don't care if the owner doesn't care.
+      return
+
     if susproof_ch is None or susproof_ch.type != discord.ChannelType.text:
       print(f'[DEAFCHECK]: No suspension proof channel found, or suspension proof channel is not a text channel.')
       return

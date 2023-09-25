@@ -44,7 +44,7 @@ class AdminCmds(commands.Cog, name="Admin Commands"):
     """[Admin+] View internal parts of the bot.
 
     Args:
-        mainarg ([str]): What to view. Can be: roles, staffroles, sections, section_<sectionname>, hcs, or afks.
+        mainarg ([str]): What to view. Can be: optedout, roles, staffroles, sections, section_<sectionname>, hcs, or afks.
         guild: guild ID to view. if none, is the current guild. can also be 'shatters'.
     """
 
@@ -56,6 +56,9 @@ class AdminCmds(commands.Cog, name="Admin Commands"):
 
     if mainarg == 'staffroles':
       await ctx.send(str(ROLES))
+
+    elif mainarg == 'optedout':
+      await ctx.send(self.bot.get_deafcheck_optout_list(gid))
 
     elif mainarg == 'roles':
       embed = discord.Embed()
@@ -74,8 +77,11 @@ class AdminCmds(commands.Cog, name="Admin Commands"):
       dungeon_pingroles_desc = ""
       for dungeon in self.bot.get_dungeon_ping_role_list(gid):
         role = self.bot.get_dungeon_ping_role(gid, dungeon)
-        dungeon_pingroles_desc += f"`{dungeon}`: {role.mention if role else 'None'}"
-        
+        dungeon_pingroles_desc += f"`{dungeon}`: {role.mention if role else 'None'}\n"
+      
+      eventrole = self.bot.get_event_ping_role(gid)
+      dungeon_pingroles_desc += f"`events`: {eventrole.mention if eventrole else 'None'}"
+
       embed.add_field(name="Dungeon Ping Roles", value=dungeon_pingroles_desc)
 
       await ctx.send(embed=embed)
@@ -207,6 +213,9 @@ class AdminCmds(commands.Cog, name="Admin Commands"):
         setup dungeonping <dungeon> <role ID>
           Sets the ping role for a specific dungeon.
 
+        setup eventping <role ID>
+          Sets the event ping role. Any dungeon without a specific dungeon ping will be pinged as an event.
+
         setup rlroles <dungeon> <role IDs>
           Only allows those with one of the given roles to lead a given dungeon.
           Managers (HRL/Admin+) are automatically allowed to lead all dungeons.
@@ -280,7 +289,7 @@ class AdminCmds(commands.Cog, name="Admin Commands"):
 
     elif mainarg == 'dungeonping':
       if len(args) < 2:
-        await ctx.send("Invalid amount of arguments")
+        await ctx.send("You must include both a role code (see `^dungeons`) and a role ID.")
         return
       
       try:
@@ -299,6 +308,24 @@ class AdminCmds(commands.Cog, name="Admin Commands"):
           await ctx.send(embed=discord.Embed(description=f"Role ping for {dungeons.dungeonlist[dlist][args[0]].name} set to {role.mention}"))
           self.bot.save_db()
           break
+
+    elif mainarg == 'eventping':
+      if len(args) < 1:
+        await ctx.send("You must include a role ID.")
+
+      try:
+        role = ctx.guild.get_role(int(args[0]))
+      except ValueError:
+        await ctx.send("Role ID must be an integer.")
+        return
+      
+      if role is None:
+        await ctx.send(f"Role with ID `{args[0]}` not found.")
+        return
+      
+      self.bot.gdict[gid][sb.GDICT_EVENT_PING_ROLE] = int(args[0])
+      await ctx.send(embed=discord.Embed(description=f"Role ping for events set to {role.mention}"))
+      self.bot.save_db()
 
     elif mainarg == 'rlroles':
       if len(args) < 2:

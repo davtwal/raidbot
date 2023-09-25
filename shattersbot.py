@@ -25,6 +25,7 @@ GDICT_SUSPROOF_CH = 'susproof'
 GDICT_RUNINFO_CH = 'runinfo'
 GDICT_DEAFCHECK_WARNTIME = 'deafch_warn'      # Amount of time after deafening where a raider gets warned (s).
 GDICT_DEAFCHECK_SUSTIME = 'deafch_susp'       # Amount of time after being warned where the RL is notified (s).
+GDICT_DEAFCHECK_OPTEDOUT = 'deafch_optout'    # List of RLs who have opted out of having their runs deaf-checked.
 GDICT_AFK_RELEVANTTIME = 'afk_relevant_time'  # Amount of time an AFK check is considered 'relevant' for a voice channel.
 GDICT_EVENTPING_TIMEOUT = 'eventping_timeout' # Amount of time allowed in between event pings.
 
@@ -52,6 +53,7 @@ DEFAULT_GUILD_DICT = {
   GDICT_RUNINFO_CH: 0,
   GDICT_DEAFCHECK_WARNTIME: 2,
   GDICT_DEAFCHECK_SUSTIME: 90,
+  GDICT_DEAFCHECK_OPTEDOUT: [],
   GDICT_AFK_RELEVANTTIME: 30 * 60, # 30 minutes
   GDICT_EVENTPING_TIMEOUT: 2 * 60 + 30, # 2.5 minutes
 #  GDICT_DUNGEON_ROLE_WHITELIST: {},
@@ -246,13 +248,20 @@ class ShattersBot(commands.Bot):
   def get_dungeon_ping_role(self, guild_id, dcode) -> Optional[discord.Role]:
     if dcode not in self.gdict[guild_id][GDICT_DUNGEON_PING_ROLE]:
       print(f"Dungeon get ping role no dcode: {dcode} in {self.gdict[guild_id][GDICT_DUNGEON_PING_ROLE]}")
-      return self.gdict[guild_id][GDICT_EVENT_PING_ROLE]
+      return self.get_event_ping_role(guild_id)
     
     if self.get_guild(guild_id) is None:
       print("Dungeon get ping role no guild")
       return None
     
     return self.get_guild(guild_id).get_role(self.gdict[guild_id][GDICT_DUNGEON_PING_ROLE][dcode])
+
+  def get_event_ping_role(self, guild_id) -> Optional[discord.Role]:
+    if self.get_guild(guild_id) is None:
+      print("Event get ping role no guild")
+      return None
+    
+    return self.get_guild(guild_id).get_role(self.gdict[guild_id][GDICT_EVENT_PING_ROLE])
 
   def get_section(self, guild_id, name) -> RaidingSection:
     try:
@@ -301,3 +310,23 @@ class ShattersBot(commands.Bot):
   def close_connections(self):
     self.tracker.close_connections()
 
+  ####################
+  ## Other
+  ####################
+
+  def add_deafcheck_optout(self, guild_id, uid):
+    if uid not in self.gdict[guild_id][GDICT_DEAFCHECK_OPTEDOUT]:
+      self.gdict[guild_id][GDICT_DEAFCHECK_OPTEDOUT].append(uid)
+      self.save_db()
+      return True
+    return False
+
+  def remove_deafcheck_optout(self, guild_id, uid):
+    if uid in self.gdict[guild_id][GDICT_DEAFCHECK_OPTEDOUT]:
+      self.gdict[guild_id][GDICT_DEAFCHECK_OPTEDOUT].remove(uid)
+      self.save_db()
+      return True
+    return False
+
+  def get_deafcheck_optout_list(self, guild_id):
+    return self.gdict[guild_id][GDICT_DEAFCHECK_OPTEDOUT]

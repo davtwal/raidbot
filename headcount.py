@@ -19,8 +19,10 @@ When someone reacts to one of the below reacts, their name will appear.
 If they then unreact, their name will appear in brackets.
 Example: \"raiderMan\" => \"[raiderMan]\""""
 
-HC_ANNOUNCE_STR = '{} A {} headcount has been started by {}.'
+HC_ANNOUNCE_STR = '{} A {} headcount has been started by {{}}.'
 HC_AUTO_END = 60 * 60
+HC_KEY_ALERT_DELAY = 3
+HC_KEY_ALERT_MSG = '{} **Key alert**! {} reacted with a key. *Be sure to double check that their reaction is still there!*\nA reaction has been removed if their name is surrounded by brackets: `[removedReactor]`'
 
 class Headcount:
   STATUS_GATHERING = 0
@@ -38,7 +40,8 @@ class Headcount:
     self.status_ch = status_ch
     self.dungeon = dungeon
     
-    self.care_reacts = dungeon.get_key_react_emojis(bot) + dungeon.get_early_react_emojis(bot) + dungeon.get_primary_react_emojis(bot)
+    self.key_reacts = dungeon.get_key_react_emojis(bot)
+    self.care_reacts = self.key_reacts + dungeon.get_early_react_emojis(bot) + dungeon.get_primary_react_emojis(bot)
     pass
   
   def owner(self) -> Union[discord.User, discord.Member]:
@@ -66,7 +69,7 @@ class Headcount:
     if ping_role:
       here_ping += f" `{ping_role.mention}`" if self.bot.is_debug() else f" {ping_role.mention}"
 
-    self.status_msg = self.status_ch.send(content=HC_ANNOUNCE_STR.format(here_ping, self.dungeon.name, self.owner().mention), embed=self.status_embed)
+    self.status_msg = self.status_ch.send(content=HC_ANNOUNCE_STR.format(here_ping, self.dungeon.name), embed=self.status_embed)
     
     ### Specifically for shatters:
     add_hmconv = None
@@ -79,12 +82,21 @@ class Headcount:
     
     self.panel_msg = await self.panel_msg
     self.status_msg = await self.status_msg
+
+    await self.status_msg.edit(content=self.status_msg.content.format(self.owner().mention))
     
     self.react_task = asyncio.create_task(self._add_reactions())
     self.loop_task = asyncio.create_task(self._react_wait_loop())
     self.auto_end_task = asyncio.create_task(self._auto_end_loop())
+    self.key_alert_task = None
+    self.key_alert_user = None
     pass
   
+  async def _key_alert(self):
+    await asyncio.sleep(HC_KEY_ALERT_DELAY)
+    self.key_alert_task = None
+    await self.ctx.send(HC_KEY_ALERT_MSG.format(self.owner().mention, self.key_alert_user.mention))
+
   async def _react_wait_loop(self):
     def react_check(payload: discord.RawReactionActionEvent):
       return payload.message_id == self.status_msg.id and payload.user_id != self.bot.user.id and payload.emoji in self.care_reacts
@@ -107,9 +119,18 @@ class Headcount:
       field_index = get_field_index(result.emoji, [self.care_reacts])
       
       if result.event_type == 'REACTION_ADD':
+        if result.emoji in self.key_reacts:
+          if self.key_alert_task is None:
+            self.key_alert_user = user
+            self.key_alert_task = asyncio.create_task(self._key_alert())
         await self._add_react(field_index, user)
       
       elif result.event_type == 'REACTION_REMOVE':
+        if result.emoji in self.key_reacts:
+          if self.key_alert_task is not None and user.id == self.key_alert_user.id:
+            self.key_alert_task.cancel()
+            self.key_alert_task = None
+            self.key_alert_user = None
         await self._remove_react(field_index, user)
   
   async def _auto_end_loop(self):
