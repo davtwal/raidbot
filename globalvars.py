@@ -43,9 +43,9 @@ Example: \"raiderMan\" => \"[raiderMan]\""""
 ROLES = [
   ['Developer', 'Admin', 'Administrator', 'Moderator', 'Owner'], # Type 0: Admin/Dev
   ['Head Raid Leader', 'Officer'], # Type 1: Manager
-  ['Veteran Raid Leader', 'Veteran Event Leader'], # Type 2a: Vet Leaders
+  ['Veteran Raid Leader', 'Veteran Everything Leader'], # Type 2a: Vet Leaders
   ['Almost Raid Leader', 'Raid Leader'], # Type 2b: Whitelist leaders
-  ['Event Raid Leader', 'Security'], # Type 2c: Event leaders
+  ['Everything Leader', 'Security'], # Type 2c: Event leaders
   ['Almost Raid Leader', 'Raid Leader'], # Type 3a: Helpers
   ['Helper', 'Veteran Raid Leader', 'Veteran Event Leader'], # Type 3b: Vet controllers
   ['Security', 'Verifier'], # Type 3c: Security

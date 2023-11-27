@@ -207,27 +207,27 @@ class ExtraCmds(commands.Cog, name='Extra Commands'):
     for emoji in emojis:
       await msg.add_reaction(emoji)
 
-  @commands.command(name='deafen_check_opt_out')
+  @commands.command(name='deafcheckoptout')
   @commands.has_any_role(*get_staff_roles())
   async def deafcheck_optout(self, ctx: commands.Context):
-    """[All Staff] Opts out of checking for deaf players in your runs. You can opt back in with ^deafen_check_opt_in.
+    """[All Staff] Opts out of checking for deaf players in your runs. You can opt back in with ^deafcheckoptin.
     """
 
     if self.bot.add_deafcheck_optout(ctx.guild.id, ctx.author.id):
-      await ctx.send("You have successfully opted out of having your runs checked for deafened players.\nYou can opt back in with `^deafen_check_opt_in.`")
+      await ctx.send("You have successfully opted out of having your runs checked for deafened players.\nYou can opt back in with `^deafcheckoptin`.")
     else:
-      await ctx.send("You're already opted out.\nYou can opt back in with `^deafen_check_opt_in.`")
+      await ctx.send("You're already opted out.\nYou can opt back in with `^deafcheckoptin`.")
 
-  @commands.command(name='deafen_check_opt_in')
+  @commands.command(name='deafcheckoptin')
   @commands.has_any_role(*get_staff_roles())
-  async def deafcheck_optout(self, ctx: commands.Context):
-    """[All Staff] Opts back in of checking for deaf players in your runs. You can opt back in with ^deafen_check_opt_in.
+  async def deafcheck_optin(self, ctx: commands.Context):
+    """[All Staff] Opts back in of checking for deaf players in your runs. You can opt back in with ^deafcheckoptin.
     """
 
     if self.bot.remove_deafcheck_optout(ctx.guild.id, ctx.author.id):
-      await ctx.send("You have successfully opted back in for having your runs checked for deafened players.\nYou can opt back out with `^deafen_check_opt_out.`")
+      await ctx.send("You have successfully opted back in for having your runs checked for deafened players.\nYou can opt back out with `^deafcheckoptout`.")
     else:
-      await ctx.send("You're already opted in.\nYou can opt out with `^deafen_check_opt_out.`")
+      await ctx.send("You're already opted in.\nYou can opt out with `^deafcheckoptout`.")
 
   @commands.Cog.listener()
   async def on_voice_state_update(self, member: discord.Member, before, after: discord.VoiceState):
